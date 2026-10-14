@@ -235,7 +235,7 @@ export function finish(t, removing = false) { // exclude block (repo), empty-dir
   if (t.dry) return console.log(`Dry run: ${c.created} to create, ${c.updated} to update, ${c.removed} to remove, ${c.unchanged} unchanged, ${c.skipped} skipped. Nothing was written.`);
   if (t.mode === 'repo') { const ok = new Set([...lines(st.snapshot), ...lines(t.snapshot)]); const leaked = [...lines(t.porcelain())].filter((l) => !ok.has(l)); if (leaked.length) die(1, `git status changed; these paths leaked into the working tree:\n  ${leaked.join('\n  ')}`); }
   console.log(`${c.created} created, ${c.updated} updated, ${c.removed} removed, ${c.unchanged} unchanged, ${c.skipped} skipped${t.mode === 'repo' ? '; git status unchanged' : ''}.${t.warns.length ? ` ${t.warns.length} warning(s) above.` : ''}`);
-  if (t.mode === 'repo' && !removing) console.log('Next: claude -> accept trust -> /orient <topic>');
+  if (t.mode === 'repo' && !removing) console.log('Next: start claude in this folder, accept the trust prompt, then type /orient [topic] at its prompt');
 }
 
 // ---- CLI

@@ -2,56 +2,91 @@
 
 From a fresh clone to a working setup in a repo, then the shortest useful guide to using it. Needs Node 18+, git and Claude Code. There is nothing to `npm install`.
 
+**How to read the commands**
+
+- `[square brackets]` mean replace this with your own value, and do not type the brackets. Everything not in brackets is copy-paste exactly as written.
+- Every block says where to run it:
+  - **Terminal** is Git Bash on Windows, or any shell on macOS and Linux. In PowerShell, write `$HOME\claude-toolkit` where this page says `~/claude-toolkit`.
+  - **Claude Code** means type it at the prompt of a running `claude` session, not in a terminal. Start one with `claude` from your project's folder.
+- `~/claude-toolkit` is where step 1 puts the clone. If you clone somewhere else, use that path instead.
+
 ## 1. Get it
+
+**Run in: Terminal, any folder.**
 
 ```bash
 git clone https://github.com/farawayfound/claude-toolkit.git ~/claude-toolkit
-node ~/claude-toolkit/dropin.mjs list          # every part, set and what it needs
+node ~/claude-toolkit/dropin.mjs list
 ```
 
-Keep the clone outside the repos you work in; the installer refuses a target that contains it. On Windows use Git Bash (PowerShell works too with `$HOME\claude-toolkit`).
+The second command prints every part, every set and what each one needs. Keep the clone outside the repos you work in; the installer refuses a target that contains it.
 
 ## 2. Put it in a repo
 
+**Run in: Terminal, inside your project's folder** (the root of a git checkout):
+
 ```bash
-cd ~/dev/my-project                            # any git checkout; work on a branch, not the default
+cd [path to your project]
 node ~/claude-toolkit/dropin.mjs add repo takehome --repo .
-claude                                         # accept the trust prompt; restart a running session first
+claude
 ```
 
-`repo` adds the facts block (detected test and lint commands) and the language rules; `takehome` is a set of parts. Nothing appears in `git status`: files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`. Pick the size you want:
+`repo` adds the facts block (detected test and lint commands) and the language rules; `takehome` is a set of parts. Nothing appears in `git status`: files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running).
 
-| Want | Command (after `node ~/claude-toolkit/dropin.mjs`) |
-|---|---|
-| The 60-minute live loop | `add repo live --repo .` |
-| Guard and permission rules only | `add safety --repo .` |
-| One or two parts | `add check reviewer --repo .` |
-| The same parts in every repo on this machine | `add takehome --user`, then per repo `add repo --repo .` |
-| Preview any of the above | append `--dry-run` |
-| Take it all out again | `remove all --repo .` (or `--user`) |
+Other sizes. Each command runs where its row says, and `--repo .` means "the folder you are in":
 
-Opt-in hooks are named explicitly: `add gate --repo .` (blocks finishing while changed code has no passing test run) and `add trail --user` (logs your prompts, redacted, to `~/.claude/logs/trail.jsonl`).
+| Want | Run in | Command |
+|---|---|---|
+| The 60-minute live loop | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo live --repo .` |
+| Guard and permission rules only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add safety --repo .` |
+| Specific parts | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .` (names come from step 1, for example `check reviewer`) |
+| The same parts in every repo on this machine | Terminal, any folder; then once per project | `node ~/claude-toolkit/dropin.mjs add takehome --user`, then in each project's folder `node ~/claude-toolkit/dropin.mjs add repo --repo .` |
+| The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add gate --repo .` |
+| A log of your prompts, redacted, in `~/.claude/logs/trail.jsonl` | Terminal, any folder | `node ~/claude-toolkit/dropin.mjs add trail --user` |
+| Preview any add or remove | the same place as that command | put ` --dry-run` at the end; nothing is written |
+| Take it all out of one project | Terminal, in that project's folder | `node ~/claude-toolkit/dropin.mjs remove all --repo .` |
+| Take it all out of `~/.claude` | Terminal, any folder | `node ~/claude-toolkit/dropin.mjs remove all --user` |
 
 ## 3. Check it
 
+**Run in: Terminal, any folder:**
+
 ```bash
-node ~/claude-toolkit/setup/lib/selftest.mjs --quick     # expect no FAIL; WARNs about the real ~/.claude mean the user layer is not installed
+node ~/claude-toolkit/setup/lib/selftest.mjs --quick
 ```
 
-In a session: `/hooks` shows the guard, `/skills` the commands, `/agents` the four subagents. Fresh Windows laptop from nothing: [setup/SETUP.md](setup/SETUP.md).
+Expect no FAIL. WARNs about the real `~/.claude` only mean the user layer is not installed.
+
+**Run in: Claude Code,** one per line:
+
+```
+/hooks
+/skills
+/agents
+```
+
+They show the guard, the commands and the four subagents. A fresh Windows laptop from nothing: [setup/SETUP.md](setup/SETUP.md).
 
 ## 4. Use it
 
-| Situation | Commands | You get |
-|---|---|---|
-| Unfamiliar code, one change | `/recon <topic>`, `/scope <task>` (approve), failing test, fix, `/check`, `/break`, `/gate`, `/pr-brief` | A 25-line brief, an approved plan, RED then GREEN with real output, review findings that were reproduced, PR text |
-| A take-home or challenge | `/takehome-init <brief>`, `/scope`, thin slice, `/break`, `/deslop`, `/tighten-docs`, `/ship` | A clean repo, a ledger of who decided what, a short README with your own Decisions and AI use, a gate that opens the repo the way a reviewer will |
-| A bug | `/repro-fix <symptom>` | Failing test first, root cause in one sentence, minimal fix, sibling sweep |
-| Slow or queueing | `/perf-baseline <scenario>` | p50 and p95 with queue wait split out, before and after |
-| Who may change what | `/access-control <action>` | Chokepoint, bypasses, deny-by-default matrix, audit line |
-| Any decision, as it happens | `/decide "<what>" by: me` | One attributed row in `docs/decisions.md` |
+**Run in: Claude Code,** in the session you started in step 2. Type the lines in order and replace what is in brackets.
 
-Agents are used by name in plain language: "Use the reviewer agent on the diff against main, one lens: bypasses." They run in their own context, so several can work at once and none sees the main session's assumptions.
+| Situation | What you type | You get |
+|---|---|---|
+| Unfamiliar code, one change | `/recon [topic, for example update deal]`, then `/scope [the change in one sentence]` (approve the plan), then ask for the failing tests, then `/check`, `/break [feature or entrypoint]`, `/gate [base branch, for example main]`, `/pr-brief [base branch]` | A 25-line brief, an approved plan, RED then GREEN with real output, review findings that were reproduced, PR text |
+| A take-home or challenge | `/takehome-init [path to the brief file]`, `/scope [path to the brief file]`, then the thin slice, `/break [entrypoint]`, `/deslop [base branch]`, `/tighten-docs`, `/ship` | A clean repo, a ledger of who decided what, a short README with your own Decisions and AI use, a gate that opens the repo the way a reviewer will |
+| A bug | `/repro-fix [the symptom]` | Failing test first, root cause in one sentence, minimal fix, sibling sweep |
+| Slow or queueing | `/perf-baseline [the scenario]` | p50 and p95 with queue wait split out, before and after |
+| Who may change what | `/access-control [the action or resource]` | Chokepoint, bypasses, deny-by-default matrix, audit line |
+| Any decision, as it happens | `/decide "[what was decided]" by: [me, or agent (accepted), or agent (changed)]` | One attributed row in `docs/decisions.md` |
+
+Agents are used by name in plain language, typed the same way:
+
+```
+Use the reviewer agent on [the diff against main], one lens: [bypasses].
+```
+
+They run in their own context, so several can work at once and none sees the main session's assumptions.
 
 | Agent | Does | Edits? |
 |---|---|---|
@@ -69,12 +104,12 @@ Agents are used by name in plain language: "Use the reviewer agent on the diff a
 
 ## Knobs and kill switches
 
-| To | Do |
-|---|---|
-| Change an agent's model | Edit the `model:` line in its file under `.claude/agents/` (`inherit` follows the session) |
-| Turn the gate off for a repo | `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"` or run with `TK_GATE=off` |
-| Turn every hook off | `"disableAllHooks": true` in `~/.claude/settings.json`, then restart `claude` |
-| See what the guard decided | `~/.claude/logs/guard.jsonl`, one JSON line per decision |
-| Update the toolkit | `git -C ~/claude-toolkit pull`, then re-run the same `add` command; files you edited are kept with a warning |
+| To | Run in | Do |
+|---|---|---|
+| Change an agent's model | any text editor | Edit the `model:` line in `[path to your project]/.claude/agents/[agent name].md`, or in `~/.claude/agents/[agent name].md` for the user layer. `inherit` follows the session |
+| Turn the gate off for one repo | Terminal, in your project's folder | `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"`, or start the session with `TK_GATE=off claude` |
+| Turn every hook off | any text editor | Add `"disableAllHooks": true` to `~/.claude/settings.json`, then restart `claude` |
+| See what the guard decided | Terminal, any folder | `tail -n 20 ~/.claude/logs/guard.jsonl` (one JSON line per decision) |
+| Update the toolkit | Terminal, any folder, then in each project's folder | `git -C ~/claude-toolkit pull`, then re-run the same `add` command; files you edited are kept with a warning |
 
 Parts, sets and the reasoning behind them: [README.md](README.md). Sample prompts for each situation: [docs/examples.md](docs/examples.md).

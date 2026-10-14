@@ -7,13 +7,13 @@
 | Min | Phase | Do | Say (15 words or fewer) | Checkpoint |
 |---|---|---|---|---|
 | 0-3 | Ground rules | The four questions (§2); clone; branch; `claude` | "A few quick questions, then I read before I touch anything." | Their answers |
-| 3-10 | `/recon <topic>` | Four agents fan out; meanwhile skim the README and ask §2b | "Four read-only agents: baseline, the path to the write, bypasses, conventions." | "Is this the chokepoint you'd expect?" |
-| 10-15 | `/scope <task>` | Cases, at most 5 files, non-goals, measurement, rollback, tracks | "Here's what done means and what I'm not touching." | **Agreement before any edit** |
+| 3-10 | `/recon [topic]` | Four agents fan out; meanwhile skim the README and ask §2b | "Four read-only agents: baseline, the path to the write, bypasses, conventions." | "Is this the chokepoint you'd expect?" |
+| 10-15 | `/scope [task]` | Cases, at most 5 files, non-goals, measurement, rollback, tracks | "Here's what done means and what I'm not touching." | **Agreement before any edit** |
 | 15-38 | Build | test-writer writes RED while you direct the fix; verifier in the background; `/check` | "Tests fail for the right reason; now the smallest fix." | Show RED (about minute 24) |
 | 38-48 | `/break` then `/gate` | Breakers on the real entrypoints; eight passes; refuters; fix CONFIRMED; re-verify | "Independent passes, each finding attacked before I trust it." | Anything they want probed |
 | 48-55 | `/pr-brief` | Walk the diff top-down; follow-ups; "push, or keep it local?" | "Problem, change, evidence, measurement, risk, rollback, next." | |
 | 55-60 | Buffer | Questions (§9) | | |
-| **40** | **Slip rule** | Not green? Stop adding. Keep what is proven; write `not verified: <reason>` for the rest | "Here's what's proven, here's what isn't, and why." | |
+| **40** | **Slip rule** | Not green? Stop adding. Keep what is proven; write `not verified: [reason]` for the rest | "Here's what's proven, here's what isn't, and why." | |
 
 Four checkpoints only: after recon, after scope, at RED, before the PR. Between them, talk for at most two minutes, then invite a probe.
 
@@ -25,10 +25,12 @@ Ask first, before any command:
 3. "OK to use my own Claude Code setup and account on this code? Local config only; nothing touches your git."
 4. "Fixtures and mocks only, or credentials to assume? OK to run `npm ci` / `uv sync` / `go mod download`?"
 
+Run in: Terminal, any folder; the last line starts Claude Code.
+
 ```bash
-cd ~/dev && gh repo clone <owner>/<repo> && cd <repo>      # archive: unzip; git init -q && git add -A && git commit -qm baseline
-git switch -c fix/<slug>                                    # before the first edit
-claude                                                      # accept trust, then /recon <topic>
+cd ~/dev && gh repo clone [owner]/[repo] && cd [repo]      # archive: unzip; git init -q && git add -A && git commit -qm baseline
+git switch -c fix/[slug]                                    # before the first edit
+claude                                                      # accept trust, then type /recon [topic] at the Claude Code prompt
 ```
 Permission mode: default for recon; **Shift+Tab to acceptEdits** after the plan is approved; auto only if prompts stack up (the guard's denies still apply; push and PR still ask). Share one window.
 
@@ -36,20 +38,22 @@ Permission mode: default for recon; **Shift+Tab to acceptEdits** after the plan 
 
 ## 3 · The loop, with the exact prompts
 
-**Recon** · `/recon update <record>`: four agents in one message. The brief ends in `Smallest valuable change` and up to three questions with defaults. Read the chokepoint line aloud and ask the room to confirm it.
+Everything with a slash, and every quoted prompt, is typed at the Claude Code prompt in the project's folder; `[square brackets]` are yours to replace.
+
+**Recon** · `/recon update [record]`: four agents in one message. The brief ends in `Smallest valuable change` and up to three questions with defaults. Read the chokepoint line aloud and ask the room to confirm it.
 
 **Scope** ·
 ```
-/scope <task in one sentence>. Constraints: smallest diff, the repo's own patterns, no new deps, fixtures only, nothing touches shared systems. Done means: <tests + checks>. Tracks: test-writer on the case table; <independent piece> in a worktree.
+/scope [task in one sentence]. Constraints: smallest diff, the repo's own patterns, no new deps, fixtures only, nothing touches shared systems. Done means: [tests + checks]. Tracks: test-writer on the case table; [independent piece] in a worktree.
 ```
 It stops with "Approve this plan, or tell me what to change." Say what to cut. Then: `Approved. Test-writer on cases 1-6 now; I will direct the fix.`
 
 **Build** · steer it:
-- `Fix at <file:line> only; use the existing <helper>; no new module.`
+- `Fix at [file:line] only; use the existing [helper]; no new module.`
 - `Root cause first, one sentence, before you edit.`
 - `Run just the new tests and show the exit code.` then `/check`.
 
-**Harden and review** · `/break <feature>` (breakers mutate inputs through the real entrypoint; survivors of the mutation score are missing tests), then `/gate` (or `/gate main`). Then: `Fix the CONFIRMED findings only; list PLAUSIBLE ones as PR follow-ups. Re-run the verifier.` Optional extras: `/code-review high`, `/simplify`, `/security-review` (needs `origin`).
+**Harden and review** · `/break [feature]` (breakers mutate inputs through the real entrypoint; survivors of the mutation score are missing tests), then `/gate` (or `/gate main`). Then: `Fix the CONFIRMED findings only; list PLAUSIBLE ones as PR follow-ups. Re-run the verifier.` Optional extras: `/code-review high`, `/simplify`, `/security-review` (needs `origin`).
 
 **PR** · `/pr-brief` prints title and body; it creates nothing. `Push the branch and open a draft PR` only if they said so (the guard asks; never force).
 
@@ -59,21 +63,21 @@ It stops with "Approve this plan, or tell me what to change." Say what to cut. T
 |---|---|---|
 | Fan-out reads | Several Explore or verifier agents in **one** message, each with a 15-line return format | Unknown codebase; any "where does X happen?" |
 | Tests alongside the fix | test-writer writes RED while you read the edit site and state the fix | Every change; never edit source before RED is shown |
-| Isolated tracks | A second terminal: `claude -w <name>` (worktree under `.claude/worktrees/`) | Disjoint files only; integrate with `git -C <wt> diff` then `git apply` |
+| Isolated tracks | A second terminal: `claude -w [name]` (worktree under `.claude/worktrees/`) | Disjoint files only; integrate with `git -C [wt] diff` then `git apply` |
 | Background checks | `verifier` agent in the background; `/tasks` shows and stops it | After each GREEN, while you move on |
 | Review passes | `/break`, `/gate`, `/code-review high`, `/simplify` | Before the PR |
-| Side question | `/btw <question>` | Answer the room without derailing the main thread |
-| Side investigation | Second terminal, same repo, read-only: "list every other write path to <system> not covered by <fn>; file:line" | The found-while-here list |
+| Side question | `/btw [question]` | Answer the room without derailing the main thread |
+| Side investigation | Second terminal, same repo, read-only: "list every other write path to [system] not covered by [fn]; file:line" | The found-while-here list |
 
 Rules that keep parallel work honest: every brief is self-contained; parallel writers only on disjoint files; a subagent's report is a claim until you re-run its decisive command; one `/compact` between phases if `/context` is heavy.
 
 ## 5 · Prompt structure
 
 ```
-Goal: <one sentence>
-Context: <files, commands, what is already known>
+Goal: [one sentence]
+Context: [files, commands, what is already known]
 Constraints: read-only | test files only | no new deps | fixtures only | no commits
-Done when: <observable result>
+Done when: [observable result]
 Return: at most 15 lines, file:line evidence, exit codes quoted
 ```
 
@@ -89,7 +93,7 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 | Wrong edit, wrong direction | `/rewind` to the checkpoint before it; restate the constraint in one line |
 | Context long, looping | `/compact`; Esc, one-line restatement; `/context` to see why |
 | Agent stuck or runaway | `/tasks`, stop it; re-brief smaller; `/workflows` for `/gate` |
-| Tests need a DB or service | Ask; `docker compose up -d <svc>`; else `not verified: <reason>` |
+| Tests need a DB or service | Ask; `docker compose up -d [svc]`; else `not verified: [reason]` |
 | Rate limit or slow model | `/model sonnet`; fewer agents; continue by hand, narrating |
 | Asked to drop my config | `node ~/.claude/dev-toolkit/dropin.mjs remove all --user`, restart `claude` (time it the day before) |
 | Asked to use their seat | `/logout` then `/login`; say plainly that hooks and agents may differ there |
@@ -128,8 +132,8 @@ Access matrix for shape 1: owner allow · peer deny · manager of owner's team a
 
 ## 10 · Before the day
 
-**T-1:** `claude update`, `node dropin.mjs add live --user`, `node setup/lib/selftest.mjs --quick` with no FAIL, `--live` once · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, `/recon update deals`, `/scope`, build, `/check`, `/break`, `/gate`, `/pr-brief`), then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
-**T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `selftest --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
+**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/dropin.mjs add live --user`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same command with `--live` instead of `--quick` once · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/break [the feature]`, `/gate [main]`, `/pr-brief [main]`), then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
+**T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
 **After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `remove all --user`; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
 
 ## 11 · Advice

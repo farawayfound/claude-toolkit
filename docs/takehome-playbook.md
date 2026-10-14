@@ -4,12 +4,14 @@
 
 ## 1 · The budget
 
+Slash commands are typed at the Claude Code prompt in the project's folder; `[square brackets]` are yours to replace.
+
 For a 90-minute brief; scale the percentages for a longer one.
 
 | At | Checkpoint | Do | If it slips, cut first |
 |---|---|---|---|
-| 0 | Brief read | `/takehome-init <brief>`: clean repo, provided files untouched, ignore file, ledger, AGENTS.md skeleton, the fence | |
-| 10% | Plan locked | `/scope <brief>`: requirements verbatim, options with tradeoffs, questions answered, cases, files, time plan; approve | beyond-the-prompt list |
+| 0 | Brief read | `/takehome-init [path to the brief file]`: clean repo, provided files untouched, ignore file, ledger, AGENTS.md skeleton, the fence | |
+| 10% | Plan locked | `/scope [path to the brief file]`: requirements verbatim, options with tradeoffs, questions answered, cases, files, time plan; approve | beyond-the-prompt list |
 | 35% | Thin slice green | test-writer writes RED for the brief's own tests first; the smallest path from input to the output file; `/check` | options that did not make the slice |
 | 60% | Hardened | `/break`: breakers on the real entrypoints, the hidden-test list, the mutation score; fix every CONFIRMED finding with a test | extras, never verification |
 | 75% | Feature freeze | nothing new; `/deslop` on the diff; ledger up to date | |

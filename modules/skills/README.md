@@ -1,6 +1,8 @@
 # skills
 
-Fourteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node dropin.mjs add check --repo .` or `cp -r modules/skills/check <repo>/.claude/skills/`. For every repo: `--user` or `cp -r ... ~/.claude/skills/`.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+
+Fourteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node ~/claude-toolkit/dropin.mjs add check --repo .` or `cp -r ~/claude-toolkit/modules/skills/check [path to your project]/.claude/skills/`. For every repo on this machine, use `--user` instead of `--repo .` (run it anywhere) or `cp -r ~/claude-toolkit/modules/skills/check ~/.claude/skills/`.
 
 | Skill | Use | Output |
 |---|---|---|

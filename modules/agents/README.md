@@ -1,6 +1,8 @@
 # agents
 
-Four subagents, one file each. Into a checkout: `node dropin.mjs add reviewer --repo .` or `cp modules/agents/reviewer.md <repo>/.claude/agents/`. For every repo: `--user`.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+
+Four subagents, one file each. Into a checkout: `node ~/claude-toolkit/dropin.mjs add reviewer --repo .` or `cp ~/claude-toolkit/modules/agents/reviewer.md [path to your project]/.claude/agents/`. For every repo on this machine, use `--user` instead of `--repo .` (run it anywhere).
 
 | Agent | Model | Tools | Does |
 |---|---|---|---|
