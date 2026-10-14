@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Edit|Write|MultiEdit|NotebookEdit|Grep",
+        "hooks": [{ "type": "command", "command": "node \"__HOOKS_DIR__/guard.mjs\"", "timeout": 5 }]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+[
+  {"id": "d-101", "name": "Acme renewal", "owner_id": "u-ana", "stage": "proposal", "amount": 42000},
+  {"id": "d-102", "name": "Globex pilot", "owner_id": "u-ben", "stage": "qualified", "amount": 18000},
+  {"id": "d-103", "name": "Initech expansion", "owner_id": "u-cy", "stage": "prospect", "amount": 65000},
+  {"id": "d-104", "name": "Umbrella upsell", "owner_id": "u-dee", "stage": "proposal", "amount": 27000},
+  {"id": "d-105", "name": "Hooli onboarding", "owner_id": "u-ana", "stage": "won", "amount": 9000},
+  {"id": "d-106", "name": "Stark migration", "owner_id": "u-cy", "stage": "qualified", "amount": 88000},
+  {"id": "d-107", "name": "Wayne services", "owner_id": "u-ben", "stage": "prospect", "amount": 31000}
+]

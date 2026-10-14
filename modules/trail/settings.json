@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"__HOOKS_DIR__/trail.mjs\"", "timeout": 5 }] }
+    ]
+  }
+}

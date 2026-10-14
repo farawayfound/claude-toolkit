@@ -1,0 +1,21 @@
+{
+  "//": "Reference only: copy what you need into .mcp.json or `claude mcp add`. Versions are pinned so a fresh machine runs a known build.",
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.83"]
+    },
+    "postgres-readonly": {
+      "//": "DBHub 1.5 rejects --readonly. Read-only lives in ~/.claude/dbhub.toml (outside the repo): [[sources]] id = 'ro', dsn = '<DSN>' (DBHub expands env refs) and [[tools]] name = 'execute_sql', source = 'ro', readonly = true. The DSN must also use a read-only database role.",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@1.5.0", "--config", "~/.claude/dbhub.toml"]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_PAT}" }
+    }
+  }
+}

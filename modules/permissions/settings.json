@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git blame:*)",
+      "Bash(git rev-parse:*)", "Bash(git ls-files:*)", "Bash(git merge-base:*)", "Bash(git branch --show-current:*)",
+      "Bash(git worktree list:*)", "Bash(ls:*)", "Bash(wc:*)", "Bash(rg:*)", "Bash(set -o pipefail:*)",
+      "Bash(npm test:*)", "Bash(npm run test:*)", "Bash(npm run lint:*)", "Bash(npm run typecheck:*)",
+      "Bash(pnpm test:*)", "Bash(pnpm run test:*)", "Bash(pnpm run lint:*)", "Bash(yarn test:*)",
+      "Bash(npx --no-install tsc:*)", "Bash(npx --no-install vitest:*)", "Bash(npx --no-install jest:*)",
+      "Bash(npx --no-install eslint:*)", "Bash(npx --no-install prettier --check:*)",
+      "Bash(uv run --frozen pytest:*)", "Bash(uv run --frozen ruff check:*)", "Bash(uv run --frozen ruff format --check:*)",
+      "Bash(uv run --frozen mypy:*)", "Bash(pytest:*)", "Bash(python -m pytest:*)", "Bash(python3 -m pytest:*)",
+      "Bash(python -m unittest:*)", "Bash(python3 -m unittest:*)",
+      "Bash(go test:*)", "Bash(go vet:*)", "Bash(gofmt -l:*)", "Bash(make test:*)", "Bash(make lint:*)",
+      "Bash(gh pr view:*)", "Bash(gh pr diff:*)", "Bash(gh pr checks:*)", "Bash(gh pr list:*)", "Bash(gh run view:*)", "Bash(gh issue view:*)"
+    ],
+    "ask": ["Bash(git push:*)", "Bash(gh pr create:*)", "Bash(gh pr merge:*)"],
+    "deny": [
+      "Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git reset --hard:*)", "Bash(git clean:*)",
+      "Bash(rm -rf:*)", "Bash(rm -fr:*)", "Bash(printenv:*)", "Bash(gh auth token:*)",
+      "Read(**/*.env)", "Edit(**/*.env)"
+    ]
+  }
+}
