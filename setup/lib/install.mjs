@@ -33,9 +33,9 @@ function gitBash() { // never `where bash`: System32\bash.exe is WSL
   for (const g of run('where', ['git']).out.split(/\r?\n/)) if (/[\\/]cmd[\\/]git\.exe$/i.test(g.trim())) c.push(path.join(g.trim(), '../../bin/bash.exe'));
   const hit = c.find((p) => p && fs.existsSync(p)); return hit ? fwd(path.resolve(hit)) : null;
 }
-const walk = (d, base = d) => (!fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true }).filter((e) => !['.git', 'node_modules'].includes(e.name) && !(d === base && ['docs', 'practice', 'Quickstart.md'].includes(e.name)))
+const walk = (d, base = d) => (!fs.existsSync(d) ? [] : fs.readdirSync(d, { withFileTypes: true }).filter((e) => !['.git', 'node_modules'].includes(e.name) && !(d === base && ['docs', 'practice', 'Quickstart.md', 'LICENSE', 'NOTICE'].includes(e.name)))
   .flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name), base) : [fwd(path.relative(base, path.join(d, e.name)))])));
-function mirror(t) { // ~/.claude/dev-toolkit lets the per-repo commands run without the toolkit folder open; docs/, practice/ and Quickstart.md stay out of ~/.claude
+function mirror(t) { // ~/.claude/dev-toolkit lets the per-repo commands run without the toolkit folder open; docs/, practice/, Quickstart.md, LICENSE and NOTICE stay out of ~/.claude
   const dst = path.join(t.CL, 'dev-toolkit'); const files = walk(TK); const n = { created: 0, updated: 0, removed: 0 };
   if (fwd(path.resolve(TK)).toLowerCase() === fwd(path.resolve(dst)).toLowerCase()) return console.log('  mirror    running from the mirror; refresh skipped');
   for (const f of files) {

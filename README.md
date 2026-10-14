@@ -59,6 +59,10 @@ Ownership is by hash. The manifest records the SHA-256 of every file the tool wr
 
 A part is a folder under `modules/` plus an entry in `modules/index.json` (kind, one-line `what`, optional `requires`). Skills are one `SKILL.md` with reference files and scripts next to it and stay under 90 lines; agents under 40; the house rules under 60. Frontmatter keys are checked against an allowlist. The self-test enforces the contract: every catalog entry has its files, every file has an entry, every slash command the docs name exists, this README names every part and set, no payload file mentions a company or a person, and skill and agent counts match the catalog. Unit tests for the two scripts run with `node --test "setup/tests/*.test.mjs"`.
 
+## License
+
+Apache-2.0, see `LICENSE` and `NOTICE`. It is permissive like MIT and adds an explicit patent grant. Copying a skill or agent file into your own repository is fine; keep the license text with substantial copies and mark files you change.
+
 ## Layout
 
 `modules/` parts, `index.json` and `sets.json` · `dropin.mjs` placement and removal · `install.sh` and `install.ps1` the per-repo shortcut after the user layer is installed · `setup/` the Windows laptop path, the self-test and the unit tests · `docs/` playbooks and examples · `practice/live-cli` a small CLI with planted authorization, pagination and error-handling problems to rehearse on.

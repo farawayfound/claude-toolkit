@@ -105,7 +105,7 @@ ok('A12', 'agent skills: preloads name existing skills', !preBad.length, preBad.
 if (!BANNED.length) res('A13', 'banned-term scan', 'SKIP', 'pass -Banned "<csv>" to run it');
 else {
   const re = new RegExp(`(?<![A-Za-z0-9_])(${BANNED.map((b) => b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![A-Za-z0-9_])`, 'i');
-  const screen = all.filter((f) => !/^(docs\/|practice\/|Quickstart\.md$)/.test(f)); // what the mirror installs; docs, practice and the Quickstart never reach ~/.claude
+  const screen = all.filter((f) => !/^(docs\/|practice\/|Quickstart\.md$|LICENSE$|NOTICE$)/.test(f)); // what the mirror installs; docs, practice, the Quickstart and the license files never reach ~/.claude
   const hits = screen.flatMap((f) => read(path.join(TK, f)).split('\n').map((l, i) => (re.test(l) ? `${f}:${i + 1}` : null)).filter(Boolean));
   ok('A13', `banned-term scan (${BANNED.length} terms, ${screen.length} files that the mirror installs)`, !hits.length, hits.slice(0, 12).join(', '));
 }
