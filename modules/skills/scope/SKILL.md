@@ -1,12 +1,12 @@
 ---
 name: scope
-description: "Use before any change beyond one file, and at the start of a take-home: turns the brief into verbatim requirements, options with tradeoffs and one recommendation, questions only where readings differ, an acceptance table with edge families, a file plan with a diff budget, a fence around the prompt, a time plan, and decision-ledger rows; then waits for approval."
+description: "Use before any change beyond one file, and at the start of a take-home: verbatim requirements, options with one recommendation, questions only where readings differ, acceptance cases, a file plan with a diff budget, a fence around the prompt, ledger rows; then waits for approval."
 argument-hint: "[task or brief path]"
 ---
 
 # Scope: $ARGUMENTS
 
-Plan in the conversation. The only file this skill writes is `docs/decisions.md`, and only after approval. If the code involved has not been read in this session, run /recon (or /orient) first.
+Plan in the conversation. The only file this skill writes is `docs/decisions.md`, and only after approval. If the code involved has not been read in this session, run /recon first.
 
 ## 1. Brief
 - Quote every requirement verbatim with an id (`R1`, `R2`, ...), then the constraints (time, language, allowed tools, must-nots) and the deliverables, each as one line a reviewer could tick.

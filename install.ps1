@@ -1,23 +1,38 @@
-<# install.ps1 - per-repo drop-in through dropin.mjs: the toolkit into this checkout only; git never sees it.
-   Usage: & "$HOME\claude-toolkit\install.ps1" [-Target <repo>] [-Gate] [-Full|-Lean] [-DryRun|-WhatIf] [-Uninstall] [-Force]
-   Default (the `default` set): every part except the opt-in hooks, under the repo's .claude\ and CLAUDE.local.md; nothing outside
-   the checkout. On a machine with the opt-in ~/.claude user layer it adds only what that layer lacks, so nothing loads twice.
-   -Full: every part even then (-Portable is the same, kept for old commands). -Lean: always only the repo set.
-   -Gate: opt-in Stop gate. -Uninstall: remove everything this tool placed.
-   One part at a time instead: node "$HOME\claude-toolkit\dropin.mjs" add <part> --repo .   (node dropin.mjs list)
-   Unknown or misspelled flags are rejected before anything runs.
+<# install.ps1 - per-repo drop-in through dropin.mjs: one set of the toolkit into this checkout only; git never sees it.
+   Usage, in PowerShell: ~\claude-toolkit\install.cmd [-Set full|live|takehome|unbound] [-Target <repo>] [-Gate] [-DryRun|-WhatIf] [-Force] [-Uninstall]
+   (install.cmd runs this file with the execution policy bypassed; `& ~\claude-toolkit\install.ps1` is the same where scripts are allowed.)
+   Without -Set it asks which set to place (Enter = full); when input is redirected it places full. The sets are described in the header
+   of install.sh and by `node dropin.mjs list`; any other set or part name works too (-Set repo, -Set safety). Re-running with another set only adds.
+   -Gate adds the opt-in Stop gate. -Uninstall removes everything this tool placed. Unknown or misspelled flags are rejected before anything runs.
    Exit: 0 ok, 1 failed or leaked into git status (or a rejected flag), 2 usage/not a repo/refused, 3 node missing. Logic: dropin.mjs. #>
 [CmdletBinding(SupportsShouldProcess)]
-param([string]$Target = (Get-Location).Path, [switch]$Gate, [switch]$Full, [switch]$Lean, [switch]$Portable, [switch]$DryRun, [switch]$Uninstall, [switch]$Force)
+param([string]$Set, [string]$Target = (Get-Location).Path, [switch]$Gate, [switch]$DryRun, [switch]$Force, [switch]$Uninstall)
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Write-Host 'node not found: run bootstrap.cmd first, then open a new terminal'; exit 3 }
-$parts = @('add', 'default')
-if ($Full -or $Portable) { $parts = @('add', 'all') }
-if ($Lean) { $parts = @('add', 'repo') }
-if ($Gate) { $parts += 'gate' }
-if ($Uninstall) { $parts = @('remove', 'all') }
+$dry = $DryRun -or $WhatIfPreference
+if (-not $Set -and -not $Uninstall) {
+  $Set = 'full'
+  if (-not [Console]::IsInputRedirected) {
+    Write-Host 'Which set?'
+    Write-Host '  1  full      every part except the opt-in Stop gate'
+    Write-Host '  2  live      60-90 minute session on someone else''s code: recon, scope, decide, repro-fix, check, pr-brief, team; three agents; prompt log'
+    Write-Host '  3  takehome  timed challenge, 90 minutes to 3 hours: takehome-init, scope, decide, check, break, deslop, tighten-docs, ship, team; four agents; prompt log'
+    Write-Host '  4  unbound   no time limit: everything general-purpose, including parallel and the /gate review'
+    $answer = (Read-Host 'Choose [1-4, Enter = 1]').Trim()
+    switch -Regex ($answer) {
+      '^(1|full)?$' { $Set = 'full' }
+      '^(2|live)$' { $Set = 'live' }
+      '^(3|takehome)$' { $Set = 'takehome' }
+      '^(4|unbound)$' { $Set = 'unbound' }
+      default { Write-Host "unknown set: $answer (1-4, or a name from node dropin.mjs list)"; exit 2 }
+    }
+  }
+}
+$parts = if ($Uninstall) { @('remove', 'all') } else { @('add', $Set) }
+if ($Gate -and -not $Uninstall) { $parts += 'gate' }
 $flags = @('--repo', $Target)
-if ($DryRun -or $WhatIfPreference) { $flags += '--dry-run' }
+if ($dry) { $flags += '--dry-run' }
 if ($Force) { $flags += '--force' }
-if (-not ($DryRun -or $WhatIfPreference) -and -not $PSCmdlet.ShouldProcess($Target, $(if ($Uninstall) { 'uninstall dev-toolkit drop-in' } else { 'install dev-toolkit drop-in' }))) { exit 0 }  # -Confirm prompts here
+$what = if ($Uninstall) { 'uninstall dev-toolkit drop-in' } else { "install dev-toolkit set $Set" }
+if (-not $dry -and -not $PSCmdlet.ShouldProcess($Target, $what)) { exit 0 }  # -Confirm prompts here
 & node "$PSScriptRoot\dropin.mjs" @parts @flags
 exit $LASTEXITCODE

@@ -1,6 +1,6 @@
 ---
 name: break
-description: "Use after the tests are green and before review or submission: input-driven adversarial testing. Derives an edge matrix from the brief and the input shapes, runs breaker agents that mutate inputs and execute the real entrypoints, mutates the code to grade the test suite, and turns every confirmed miss into a failing test."
+description: "Use after the tests are green and before review or submission: input-driven adversarial testing. Breaker agents mutate inputs through the real entrypoints, the suite is graded by mutation, and every confirmed miss becomes a failing test."
 argument-hint: "[entrypoint or feature]"
 ---
 

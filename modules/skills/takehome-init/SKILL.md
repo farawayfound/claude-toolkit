@@ -1,6 +1,6 @@
 ---
 name: takehome-init
-description: "Use when a take-home or coding challenge arrives: starts a clean repository from the brief (no starter-kit history), writes the ignore file, the docs skeleton, AGENTS.md and the decision ledger, draws the fence around the prompt, sets the time plan with its slip rule, then hands off to /scope."
+description: "Use when a take-home or coding challenge arrives: a clean repository from the brief (no starter-kit history), the ignore file, docs skeleton, AGENTS.md and decision ledger, the fence around the prompt and the time plan; hands off to /scope."
 argument-hint: "<brief path or pasted brief> [--dir path]"
 ---
 

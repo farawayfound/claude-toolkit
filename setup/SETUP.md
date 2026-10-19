@@ -3,7 +3,7 @@
 Two layers, each a script at the toolkit root. The parts themselves are documented in [`../README.md`](../README.md). No Claude config is written outside the repos you install into.
 
 - **Machine layer**: `bootstrap.cmd` installs the toolchain with winget (binaries only, no Claude config). Logic: `setup/bootstrap-machine.ps1`.
-- **Repo layer**: `install.ps1` / `install.sh` run `dropin.mjs add all --repo` in one checkout: every part except the opt-in hooks, under `.claude/` and `CLAUDE.local.md`, listed in `.git/info/exclude`; git never sees it and nothing lands in `~/.claude`. Run it from the toolkit clone, once per repo.
+- **Repo layer**: `install.cmd` (PowerShell) / `install.sh` (Git Bash) ask which set to place (full, live, takehome or unbound) and run `dropin.mjs add <set> --repo` in one checkout, under `.claude/` and `CLAUDE.local.md`, listed in `.git/info/exclude`; git never sees it and nothing lands in `~/.claude`. Run it from the toolkit clone, once per repo.
 - `selftest.ps1` proves the wiring end to end (`setup/lib/selftest.mjs`): static checks on the parts, hook contracts, drop-in round trips in sample repos (including that nothing is written to HOME), the parallel scripts, toolchain smoke, and optional live probes.
 - Opt-in only: `install-global.ps1` still builds the old user layer in `~/.claude` (every part, settings defaults, a `~/.claude/dev-toolkit` mirror, plugins for every repo). Nothing on this page needs it.
 
@@ -15,7 +15,7 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 2. Open a new terminal, then `.\bootstrap.cmd -Check` until every core row is OK
 3. `claude` (browser login once, then type `/exit` at its prompt)
 4. `.\selftest.ps1 -Quick` (no FAIL; the `~/.claude` rows SKIP when no user layer exists, which is expected)
-5. Per repo, from its root, in PowerShell: `& "$HOME\claude-toolkit\install.ps1"`. In a Git Bash terminal: `bash ~/claude-toolkit/install.sh`; never plain `bash` in PowerShell (it can start WSL), use `& "$env:ProgramFiles\Git\bin\bash.exe" "$HOME/claude-toolkit/install.sh"`. One part at a time instead: `node ~/claude-toolkit/dropin.mjs add [part] --repo .`
+5. Per repo, from its root, in PowerShell: `~\claude-toolkit\install.cmd` (it asks which set; `-Set live` skips the question). In a Git Bash terminal: `bash ~/claude-toolkit/install.sh`. Never a bare `bash` in PowerShell: Windows resolves it to WSL, which has no bash to run. One part at a time instead: `node ~/claude-toolkit/dropin.mjs add [part] --repo .`
 6. Optional, per repo: the plugins the house rules mention, scoped to that repo only: `claude plugin install commit-commands@anthropic-plugin-directory --scope local` and the same for `pr-review-toolkit`. Without them the `reviewer` agent covers review.
 7. Optional: `.\selftest.ps1 -Live` (real headless probes, a few cents).
 
@@ -29,7 +29,8 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 | `modules/facts/detect.mjs` | `[repo]/.claude/hooks/tk/`; the facts block in `[repo]/CLAUDE.local.md`; `Bash([detected command]:*)` allow rules in `[repo]/.claude/settings.local.json` |
 | `modules/skills/*`, `modules/agents/*` | `[repo]/.claude/skills/`, `[repo]/.claude/agents/`; a skill folder brings its reference files and scripts (`parallel` brings `scripts/wt-*`, `wtc`, `statusline.mjs`) |
 | `modules/gate-workflow/gate.js` | `[repo]/.claude/workflows/`, plus `enableWorkflows: true` in `.claude/settings.local.json` when absent |
-| `modules/trail/` (opt-in) | `[repo]/.claude/hooks/tk/trail.mjs` and a UserPromptSubmit registration, only with `dropin add trail`; prompts logged to `[git dir]/dev-toolkit-logs/trail.jsonl` |
+| `modules/trail/` (live and takehome sets, else `dropin add trail`) | `[repo]/.claude/hooks/tk/trail.mjs` and a UserPromptSubmit registration; prompts logged to `[git dir]/dev-toolkit-logs/trail.jsonl` |
+| `modules/teams/` (every named set, else `dropin add team`) | `[repo]/.claude/hooks/tk/teams.mjs`, `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and TaskCreated, TaskCompleted and TeammateIdle registrations in `.claude/settings.local.json`; events logged to `[git dir]/dev-toolkit-logs/teams.jsonl` |
 | `modules/rules/tk-*.md` | `[repo]/.claude/rules/` |
 | `wt-workspace` (parallel, on request) | `[repo].code-workspace` beside the clone; its settings apply only in that VS Code workspace |
 | `wt-new` (parallel, on request) | `[repo].wt/[N]-[slug]/`, git worktrees beside the clone, each with a copy of the main checkout's git-ignored Claude config |
@@ -52,9 +53,9 @@ Backups: the first settings change in a repo backs up `.claude/settings.local.js
 | install.ps1 (install.sh) | selftest.ps1 |
 |---|---|
 | `-Target [dir]` (`--target`), default: current dir | `-Quick`: skip toolchain runs |
-| Default (`dropin add default --repo`): every part except the opt-in hooks; on a machine with the opt-in user layer, only what that layer lacks | `-Live`: real headless claude probes |
-| `-Full` (`--full`; `-Portable`/`--portable` is the same): every part even with a user layer | `-Keep`: keep and print the sample repos |
-| `-Lean` (`--lean`): only the repo set, always; `-Gate` (`--gate`): opt-in Stop gate | `-Banned "[csv]"`: whole-word scan of every file |
+| No `-Set`: asks which set (full, live, takehome, unbound); with input redirected, `full` (every part except the opt-in Stop gate; with the opt-in user layer, only what that layer lacks) | `-Live`: real headless claude probes |
+| `-Set [name]` (`--set`): that set, or any set or part name, without asking (`repo`, `safety`, `all` included) | `-Keep`: keep and print the sample repos |
+| `-Gate` (`--gate`): the opt-in Stop gate on top | `-Banned "[csv]"`: whole-word scan of every file |
 | `-DryRun` (or `-WhatIf`), `-Uninstall` (= `dropin remove all`), `-Force` (`--dry-run`, `--uninstall`, `--force`) | |
 | exit 0 ok, 1 leak/failure, 2 usage/not a repo/refused, 3 no node | exit 0 no FAIL, 1 any FAIL, 3 no node |
 

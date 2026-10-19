@@ -84,11 +84,11 @@ Fix at [deals/cli.py cmd_update and cmd_close] only: [read the actor from DEALS_
 **Verification and review.** Type one line at a time.
 ```
 /check
-/break [deals update]
-/gate [main]
+/team review [main]
 Fix the CONFIRMED findings only; list PLAUSIBLE ones as PR follow-ups. Re-run the verifier.
 /pr-brief [main]
 ```
+Without a team: `Use the reviewer agent on the diff against [main], two lenses in one message: correctness and bypasses.` With `break` and `gate-workflow` added for a 90-minute slot: `/break [deals update]` then `/gate [main]` before the team line.
 
 **When it is wrong on screen.**
 ```
@@ -107,6 +107,11 @@ Run in: Claude Code, in the project's folder.
 **A bug report.**
 ```
 /repro-fix [list returns 5 of 7 deals: pagination stops at the first page]
+```
+
+**A bug with several plausible causes.**
+```
+/team hunt [the connector stops after one page: wrong cursor, swallowed 429, or an early return?]
 ```
 
 **Something is slow.**
@@ -146,14 +151,14 @@ From docs/decisions.md and git log since [Monday], draft the PR body with /pr-br
 
 Everything below writes into the one project you run it in; nothing goes into `~/.claude` or any global settings.
 
-**Every part in this project.** Run in: Terminal, in your project's folder.
+**A set in this project.** Run in: Terminal, in your project's folder (PowerShell: `~\claude-toolkit\install.cmd -Set live`). Without `--set` it asks which one.
 ```bash
-bash ~/claude-toolkit/install.sh
+bash ~/claude-toolkit/install.sh --set live
 ```
 
-**A set, or one or two parts.** Run in: Terminal, in your project's folder. Sets are `takehome`, `live`, `safety`, `repo` and `all`.
+**A set, or one or two parts.** Run in: Terminal, in your project's folder. Sets are `full`, `live`, `takehome`, `unbound`, `safety`, `repo` and `all`.
 ```bash
-node ~/claude-toolkit/dropin.mjs add repo takehome --repo .
+node ~/claude-toolkit/dropin.mjs add takehome --repo .
 node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .
 ```
 

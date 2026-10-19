@@ -6,7 +6,7 @@ From a fresh clone to a working setup in a repo, then the shortest useful guide 
 
 - `[square brackets]` mean replace this with your own value, and do not type the brackets. Everything not in brackets is copy-paste exactly as written.
 - Every block says where to run it:
-  - **Terminal** is Git Bash on Windows, or any shell on macOS and Linux. In PowerShell, write `$HOME\claude-toolkit` where this page says `~/claude-toolkit`.
+  - **Terminal** is Git Bash on Windows, or any shell on macOS and Linux. Lines marked **PowerShell** are for that shell; there, `~\claude-toolkit` is the clone.
   - **Claude Code** means type it at the prompt of a running `claude` session, not in a terminal. Start one with `claude` from your project's folder.
 - `~/claude-toolkit` is where step 1 puts the clone. If you clone somewhere else, use that path instead.
 
@@ -23,7 +23,7 @@ The second command prints every part, every set and what each one needs. Keep th
 
 ## 2. Put it in a repo
 
-**Run in: Terminal, inside your project's folder** (the root of a git checkout):
+**Run in: Terminal, inside your project's folder** (the root of a git checkout; a folder that is not one yet gets `git init && git add -A && git commit -m baseline` first):
 
 ```bash
 cd [path to your project]
@@ -31,20 +31,31 @@ bash ~/claude-toolkit/install.sh
 claude
 ```
 
-`install.sh` places every part (except the opt-in hooks) in this checkout: files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine that has the older opt-in user layer in `~/.claude`, it adds only what that layer lacks, so nothing loads twice; `--full` places every part anyway. It includes the facts block (detected test and lint commands) and the language rules. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running). In PowerShell: `& "$HOME\claude-toolkit\install.ps1"`.
+**PowerShell:** the same step is `~\claude-toolkit\install.cmd`. Never a bare `bash` there: Windows resolves it to WSL, which has no bash to run.
+
+The installer asks which set to place:
+
+| Set | Fits | Places |
+|---|---|---|
+| `full` (Enter) | Everything, no clock | every part except the opt-in Stop gate |
+| `live` | A 60 to 90 minute session on someone else's code | the base, `recon`, `scope`, `decide`, `repro-fix`, `check`, `pr-brief`, `team`; the `test-writer`, `verifier` and `reviewer` agents; the `trail` prompt log |
+| `takehome` | A timed challenge, 90 minutes to 3 hours | the base, `recon`, `takehome-init`, `scope`, `decide`, `check`, `break`, `deslop`, `tighten-docs`, `ship`, `team`; all four agents; `trail` |
+| `unbound` | No time limit, a general set | everything in `live` plus `access-control`, `perf-baseline`, `break`, `deslop`, `tighten-docs`, `parallel`, the `breaker` agent and the `/gate` workflow; no `trail` |
+
+The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules and the agent-teams switch. `--set live` (PowerShell: `-Set live`) skips the question; a script or a pipe with no `--set` gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running). On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
 
 Other sizes. Each command runs where its row says, and `--repo .` means "the folder you are in":
 
 | Want | Run in | Command |
 |---|---|---|
-| The 60-minute live loop only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo live --repo .` |
-| The take-home loop only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo takehome --repo .` |
-| Several issues at once (worktree, branch and session per issue) | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add parallel --repo .` (also in `live`); then step 4 |
+| A set without the question | Terminal, in your project's folder | `bash ~/claude-toolkit/install.sh --set takehome` (PowerShell: `~\claude-toolkit\install.cmd -Set takehome`) |
+| More parts on top of a set | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add break gate-workflow --repo .` (a live slot that turned out to be 90 minutes); another set's name works the same way and only adds |
+| Several issues at once (worktree, branch and session per issue) | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add parallel --repo .` (in `unbound` and `full`); then step 4 |
 | Guard and permission rules only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add safety --repo .` |
 | Specific parts | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .` (names come from step 1, for example `check reviewer`) |
 | One part by hand, no installer | Terminal, in your project's folder | `mkdir -p .claude/skills && cp -r ~/claude-toolkit/modules/skills/[skill] .claude/skills/`, or `mkdir -p .claude/agents && cp ~/claude-toolkit/modules/agents/[agent].md .claude/agents/`; on macOS or Linux also `chmod +x .claude/skills/[skill]/scripts/*` when the skill has scripts; add the copied paths to `.git/info/exclude` yourself |
-| The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add gate --repo .` |
-| A log of your prompts, redacted, in the repo's git dir | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add trail --repo .` |
+| The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `bash ~/claude-toolkit/install.sh --set live --gate`, or `node ~/claude-toolkit/dropin.mjs add gate --repo .` |
+| Agent teams off again, or on for a set that lacks them | any text editor, or a terminal in your project's folder | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json` (no restart needed); `node ~/claude-toolkit/dropin.mjs add team --repo .` to add the skill and the switch |
 | Preview any add or remove | the same place as that command | put ` --dry-run` at the end; nothing is written |
 | Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `bash ~/claude-toolkit/install.sh --uninstall` (or `node ~/claude-toolkit/dropin.mjs remove all --repo .`) |
 
@@ -66,7 +77,7 @@ Expect no FAIL. The rows about the real `~/.claude` say SKIP when the optional u
 /agents
 ```
 
-They show the guard, the commands and the four subagents. A fresh Windows laptop from nothing: [setup/SETUP.md](setup/SETUP.md).
+They show the guard, the commands and the subagents of the set you placed. A fresh Windows laptop from nothing: [setup/SETUP.md](setup/SETUP.md).
 
 ## 4. Use it
 
@@ -74,13 +85,16 @@ They show the guard, the commands and the four subagents. A fresh Windows laptop
 
 | Situation | What you type | You get |
 |---|---|---|
-| Unfamiliar code, one change | `/recon [topic, for example update deal]`, then `/scope [the change in one sentence]` (approve the plan), then ask for the failing tests, then `/check`, `/break [feature or entrypoint]`, `/gate [base branch, for example main]`, `/pr-brief [base branch]` | A 25-line brief, an approved plan, RED then GREEN with real output, review findings that were reproduced, PR text |
+| Unfamiliar code, one change | `/recon [topic, for example update deal]`, then `/scope [the change in one sentence]` (approve the plan), then ask for the failing tests, then `/check`, then `/team review [base branch, for example main]` (or `Use the reviewer agent on the diff, one lens: [bypasses]`; `/break [feature]` and `/gate [base]` when installed), then `/pr-brief [base branch]` | A 25-line brief, an approved plan, RED then GREEN with real output, review findings that were reproduced, PR text |
 | A take-home or challenge | `/takehome-init [path to the brief file]`, `/scope [path to the brief file]`, then the thin slice, `/break [entrypoint]`, `/deslop [base branch]`, `/tighten-docs`, `/ship` | A clean repo, a ledger of who decided what, a short README with your own Decisions and AI use, a gate that opens the repo the way a reviewer will |
-| A bug | `/repro-fix [the symptom]` | Failing test first, root cause in one sentence, minimal fix, sibling sweep |
+| A bug | `/repro-fix [the symptom]`; several plausible causes: `/team hunt [the symptom]` first | Failing test first, root cause in one sentence, minimal fix, sibling sweep |
 | Slow or queueing | `/perf-baseline [the scenario]` | p50 and p95 with queue wait split out, before and after |
 | Who may change what | `/access-control [the action or resource]` | Chokepoint, bypasses, deny-by-default matrix, audit line |
 | Any decision, as it happens | `/decide "[what was decided]" by: [me, or agent (accepted), or agent (changed)]` | One attributed row in `docs/decisions.md` |
+| A plan with disjoint file sets | `/team build [the approved plan]` | A task per deliverable, RED first, one teammate per file set, a verifier at the end; the lead re-runs the decisive command |
 | Several issues at once | `/parallel plan [issue numbers]`, then in a terminal the `wt-new` line it prints and `wtc [issue]` per window; before merging, `/parallel check` | A table of files, overlaps and launch order; one worktree, branch and named plan-mode session per issue; conflicts and PR claims checked |
+
+Teammates appear in the agent list below the prompt: arrow keys select one, Enter opens it to talk to it, `x` stops it, Ctrl+T shows the shared task list. Each teammate is a full session, so `/team` says how many it will spawn before it does.
 
 For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run in: Terminal, in your project's folder:
 
@@ -89,7 +103,7 @@ For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run i
 .claude/skills/parallel/scripts/wt-new 12:authz 14:paging   # or just wt-new in that workspace's terminals
 ```
 
-The workspace file puts the scripts on the PATH of its own terminals (after you trust the workspace), so `wt-new`, `wtc 12`, `wt-board 10` and `wt-conflicts` work by name there. `wtc` starts each session with its name, plan mode, a status line showing the folder and branch, and the terminal bell when it waits, all through flags for that session only. Commit before review or stacking: `wt-conflicts` and `WT_BASE` stacks see commits, not the working tree.
+The workspace file puts the scripts on the PATH of its own terminals (after you trust the workspace), so `wt-new`, `wtc 12`, `wt-board 10` and `wt-conflicts` work by name there. `wtc` starts each session with its name, plan mode, a status line showing the folder and branch, and the terminal bell when it waits, all through flags for that session only (`TK_TEAMMATE_MODE=tmux` adds split-pane teams where tmux exists). Commit before review or stacking: `wt-conflicts` and `WT_BASE` stacks see commits, not the working tree.
 
 Agents are used by name in plain language, typed the same way:
 
@@ -97,7 +111,7 @@ Agents are used by name in plain language, typed the same way:
 Use the reviewer agent on [the diff against main], one lens: [bypasses].
 ```
 
-They run in their own context, so several can work at once and none sees the main session's assumptions.
+They run in their own context, so several can work at once and none sees the main session's assumptions. The same files define teammate types for `/team`.
 
 | Agent | Does | Edits? |
 |---|---|---|
@@ -109,7 +123,7 @@ They run in their own context, so several can work at once and none sees the mai
 ## 5. Habits that make it work
 
 - Approve the plan before any edit; see RED before the fix; read the exit code, not the summary.
-- Treat an agent's report as a claim and re-run its decisive command.
+- Treat an agent's or a teammate's report as a claim and re-run its decisive command.
 - Log a call with `/decide` when you make it. `me` is a call you made, `agent (accepted)` a default you approved, `agent (changed)` a proposal you overruled.
 - Write the README's Decisions and AI use sections yourself; the tools leave a placeholder on purpose.
 
@@ -119,8 +133,9 @@ They run in their own context, so several can work at once and none sees the mai
 |---|---|---|
 | Change an agent's model | any text editor | Edit the `model:` line in `[path to your project]/.claude/agents/[agent name].md`. `inherit` follows the session |
 | Turn the gate off for one repo | Terminal, in your project's folder | `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"`, or start the session with `TK_GATE=off claude` |
+| Turn agent teams off for one repo | any text editor | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `[path to your project]/.claude/settings.local.json`; the running session picks it up |
 | Turn every hook off in this repo | any text editor | Add `"disableAllHooks": true` to `[path to your project]/.claude/settings.local.json`, then restart `claude` |
-| See what the guard decided | Terminal, in your project's main checkout | `tail -n 20 .git/dev-toolkit-logs/guard.jsonl` (one JSON line per decision; worktree sessions log here too) |
-| Update the toolkit | Terminal, any folder, then in each project's folder | `git -C ~/claude-toolkit pull`, then re-run the same `add` command; files you edited are kept with a warning |
+| See what the guard decided, or what the team did | Terminal, in your project's main checkout | `tail -n 20 .git/dev-toolkit-logs/guard.jsonl` (one JSON line per decision; worktree sessions log here too); `teams.jsonl` for tasks and idle teammates, `trail.jsonl` for your prompts |
+| Update the toolkit | Terminal, any folder, then in each project's folder | `git -C ~/claude-toolkit pull`, then re-run the same install or `add` command; files you edited are kept with a warning |
 
 Parts, sets and the reasoning behind them: [README.md](README.md). Sample prompts for each situation: [docs/examples.md](docs/examples.md).

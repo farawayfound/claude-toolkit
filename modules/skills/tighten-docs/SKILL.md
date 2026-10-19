@@ -1,6 +1,6 @@
 ---
 name: tighten-docs
-description: "Use before handing a repository to readers: makes the docs dense and human, not long. Enforces a README skeleton with caps, moves detail into docs/, writes an AGENTS.md under 40 lines, deletes rubric-anticipation sections, flags AI-writing patterns, and leaves the Decisions and AI-use sections for the user to write."
+description: "Use before handing a repository to readers: README to a capped skeleton, detail into docs/, an AGENTS.md under 40 lines, rubric-guessing sections deleted, AI-writing patterns flagged; the Decisions and AI-use sections are left for the user."
 argument-hint: "[readme cap in lines, default 80]"
 ---
 

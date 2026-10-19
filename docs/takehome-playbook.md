@@ -42,7 +42,7 @@ Slip rule: cut beyond-the-prompt items first, then scope, never verification. A 
 ## 5 · Docs that read as yours
 
 - README at most 80 lines, in the skeleton order: what, run, test (with the real count), results table, five design bullets, decisions, limits and next steps, AI use, time. Detail goes to `docs/design.md` and `docs/testing.md`; the ledger is `docs/decisions.md`.
-- Two sections you write by hand, in plain first person: **Decisions** (three to five calls, each with the alternative you rejected and why, drawn from the ledger) and **AI use** (what the tool wrote, what you verified, what you changed). `/tighten-docs` leaves placeholders; `/ship` refuses them.
+- Two sections you write by hand, in plain first person: **Decisions** (three to five calls, each with the alternative you rejected and why, drawn from the ledger) and **AI use** (what the tool wrote, what you verified, what you changed; `.git/dev-toolkit-logs/trail.jsonl` holds every prompt you typed, redacted, and `teams.jsonl` every task a teammate completed). `/tighten-docs` leaves placeholders; `/ship` refuses them.
 - Never commit guesses about the rubric. "Implied expectations", "evaluation guesses" and "what a reviewer will look for" read as gaming the review and as machine text. A requirement-to-test table says the same thing honestly.
 - No lockfile in a stdlib-only project, no four launcher scripts, no generated output except the one example the brief asks for, no badges, no emoji.
 

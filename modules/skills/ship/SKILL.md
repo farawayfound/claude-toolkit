@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Use when a take-home, challenge repo or PR is about to be handed over: runs the pre-submission gate (tracked-file inventory, junk and secrets, history noise, README placeholders and length, rubric-anticipation sections, decision ledger, a fresh-clone run of the README commands), proposes the smallest fixes, and drafts the submission note. Pushes nothing and zips only when asked."
+description: "Use when a take-home or challenge repo is about to be handed over: the pre-submission gate (tracked files, junk and secrets, history noise, README caps and placeholders, the decision ledger, a fresh-clone run of the README commands), the smallest fixes, and the submission note. Pushes nothing."
 disable-model-invocation: true
 argument-hint: "[--zip path] [--no-run] [--cmd \"<command>\"]"
 ---

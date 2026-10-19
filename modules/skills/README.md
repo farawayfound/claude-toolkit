@@ -6,8 +6,7 @@ Fifteen slash commands, one folder each, no shared code; a folder may carry refe
 
 | Skill | Use | Output |
 |---|---|---|
-| `recon` | Start of work in unfamiliar code; four agents in one message | Stack and commands, baseline, code path, chokepoint and bypasses, risks, 3 questions, smallest valuable change |
-| `orient` | The same, single-agent | Same brief |
+| `recon` | Start of work in unfamiliar code; four agents in one message, or the same four passes in sequence | Stack and commands, baseline, code path, chokepoint and bypasses, risks, 3 questions, smallest valuable change |
 | `takehome-init` | A brief arrives | A clean repo, ignore file, docs skeleton, AGENTS.md, ledger, the fence, the time plan |
 | `scope` | Before any change beyond one file | Requirements verbatim, options with a recommendation, questions, acceptance cases, files, budget, fence, time plan, ledger rows; stops for approval |
 | `decide` | Any decision, as it happens | One attributed row in docs/decisions.md |
@@ -21,3 +20,4 @@ Fifteen slash commands, one folder each, no shared code; a folder may carry refe
 | `perf-baseline` | Slowness, timeouts, queueing | p50, p95, max and queue wait before and after, bottleneck with evidence, limits |
 | `pr-brief` | A verified change ready for review (user-invoked only) | PR title and body: problem, change, verification, measurement, risks, rollback, follow-ups |
 | `parallel` | Several issues at once (user-invoked only): `plan [issues]` before, `check` before merge | Files, overlaps, stacks and launch order; conflicts and PR claims checked. `scripts/`: `wt-new` (worktree and branch per issue with this checkout's Claude config), `wtc` (named plan-mode session, per-session status line and bell), `wt-board`, `wt-conflicts`, `wt-workspace` (a VS Code workspace beside the clone with the scripts on its terminals' PATH) |
+| `team` | A review with one lens per teammate, a build with one teammate per disjoint file set, or a bug hunt with competing hypotheses: `review [base]`, `build <approved plan>`, `hunt <symptom>` | Task table with owners and evidence, the merged result, the lead's own re-run, verdict. Needs the `teams` part (the switch, the audit log and the evidence hook), which `dropin.mjs` brings along |

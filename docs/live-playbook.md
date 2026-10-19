@@ -10,7 +10,7 @@
 | 3-10 | `/recon [topic]` | Four agents fan out; meanwhile skim the README and ask §2b | "Four read-only agents: baseline, the path to the write, bypasses, conventions." | "Is this the chokepoint you'd expect?" |
 | 10-15 | `/scope [task]` | Cases, at most 5 files, non-goals, measurement, rollback, tracks | "Here's what done means and what I'm not touching." | **Agreement before any edit** |
 | 15-38 | Build | test-writer writes RED while you direct the fix; verifier in the background; `/check` | "Tests fail for the right reason; now the smallest fix." | Show RED (about minute 24) |
-| 38-48 | `/break` then `/gate` | Breakers on the real entrypoints; eight passes; refuters; fix CONFIRMED; re-verify | "Independent passes, each finding attacked before I trust it." | Anything they want probed |
+| 38-48 | Review | `/team review main`: three reviewer teammates, one lens each, each refuting the others; or the reviewer agent per lens; fix CONFIRMED; re-verify | "Independent reviewers, each finding attacked before I trust it." | Anything they want probed |
 | 48-55 | `/pr-brief` | Walk the diff top-down; follow-ups; "push, or keep it local?" | "Problem, change, evidence, measurement, risk, rollback, next." | |
 | 55-60 | Buffer | Questions (§9) | | |
 | **40** | **Slip rule** | Not green? Stop adding. Keep what is proven; write `not verified: [reason]` for the rest | "Here's what's proven, here's what isn't, and why." | |
@@ -29,7 +29,7 @@ Run in: Terminal, any folder; the last line starts Claude Code.
 
 ```bash
 cd ~/dev && gh repo clone [owner]/[repo] && cd [repo]      # archive: unzip; git init -q && git add -A && git commit -qm baseline
-bash ~/claude-toolkit/install.sh                            # every part, this checkout only; git status stays the same
+bash ~/claude-toolkit/install.sh --set live                 # the live set, this checkout only; git status stays the same
 git switch -c fix/[slug]                                    # one issue; several: see §4, one worktree per issue
 claude                                                      # accept trust, then type /recon [topic] at the Claude Code prompt
 ```
@@ -54,7 +54,7 @@ It stops with "Approve this plan, or tell me what to change." Say what to cut. T
 - `Root cause first, one sentence, before you edit.`
 - `Run just the new tests and show the exit code.` then `/check`.
 
-**Harden and review** · `/break [feature]` (breakers mutate inputs through the real entrypoint; survivors of the mutation score are missing tests), then `/gate` (or `/gate main`). Then: `Fix the CONFIRMED findings only; list PLAUSIBLE ones as PR follow-ups. Re-run the verifier.` Optional extras: `/code-review high`, `/simplify`, `/security-review` (needs `origin`).
+**Review** · `/team review main`: three reviewer teammates, one lens each, visible in the agent list under the prompt, each trying to refute the others' findings; the lead re-runs every high. Without a team: `Use the reviewer agent on the diff against main, one lens: bypasses.` With `break` and `gate-workflow` added for a 90-minute slot, `/break [feature]` then `/gate main` come first. Then: `Fix the CONFIRMED findings only; list PLAUSIBLE ones as PR follow-ups. Re-run the verifier.` Optional extras: `/code-review high`, `/simplify`, `/security-review` (needs `origin`).
 
 **PR** · `/pr-brief` prints title and body; it creates nothing. `Push the branch and open a draft PR` only if they said so (the guard asks; never force).
 
@@ -67,7 +67,8 @@ It stops with "Approve this plan, or tell me what to change." Say what to cut. T
 | One issue per worktree | `/parallel plan [issues]`; in a terminal `wt-new [N]:[slug] ...`, then `wtc [N]` in one pane per issue (`wt-workspace` once makes the VS Code workspace whose terminals have the scripts on PATH) | Several issues: each window passes the same gates; commit before review or stacking; `/parallel check` (`wt-conflicts`) before the PRs |
 | Isolated track, one-off | A second terminal: `claude -w [name]` (worktree under `.claude/worktrees/`, branch `worktree-[name]`) | Disjoint files only; integrate with `git -C [wt] diff` then `git apply` |
 | Background checks | `verifier` agent in the background; `/tasks` shows and stops it | After each GREEN, while you move on |
-| Review passes | `/break`, `/gate`, `/code-review high`, `/simplify` | Before the PR |
+| Agent team | `/team review`, `/team build`, `/team hunt`: named teammates with a shared task list; arrow keys and Enter in the agent list open one to talk to it; the TaskCompleted hook refuses a task without evidence | Review lenses, disjoint-file builds, competing hypotheses; each teammate is a session, so the skill says how many first |
+| Review passes | `/team review`, the reviewer agent per lens, `/code-review high`, `/simplify`; `/break` and `/gate` when installed | Before the PR |
 | Side question | `/btw [question]` | Answer the room without derailing the main thread |
 | Side investigation | Second terminal, same repo, read-only: "list every other write path to [system] not covered by [fn]; file:line" | The found-while-here list |
 
@@ -94,7 +95,8 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 | Prompts piling up | Shift+Tab to acceptEdits or auto; `/permissions` adds an allow rule |
 | Wrong edit, wrong direction | `/rewind` to the checkpoint before it; restate the constraint in one line |
 | Context long, looping | `/compact`; Esc, one-line restatement; `/context` to see why |
-| Agent stuck or runaway | `/tasks`, stop it; re-brief smaller; `/workflows` for `/gate` |
+| Agent stuck or runaway | `/tasks`, stop it; a teammate: select it in the agent list and press `x`; re-brief smaller; `/workflows` for `/gate` |
+| Teammates where you wanted subagents, or a team misbehaving | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json`; no restart needed |
 | Tests need a DB or service | Ask; `docker compose up -d [svc]`; else `not verified: [reason]` |
 | Rate limit or slow model | `/model sonnet`; fewer agents; continue by hand, narrating |
 | Asked to drop my config | Worktrees first (`git worktree remove [path]`), then `bash ~/claude-toolkit/install.sh --uninstall` in the repo, restart `claude` (time it the day before) |
@@ -105,7 +107,7 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 
 - **Don't know:** "I haven't done that in production. The closest is ___; here's how I'd find out."
 - **AI to prepare?** "Yes: Claude, to organise and pressure-test my prep; the incidents and numbers are mine."
-- **This setup:** "My house rules for unfamiliar repos: a guard, four agents, a dozen skills and a review workflow. Claude helped write it; a self-test proves the wiring."
+- **This setup:** "My house rules for unfamiliar repos: a guard, three agents, seven skills and a prompt log. Claude helped write it; a self-test proves the wiring."
 - **Reviewer:** "An independent reviewer agent, fresh context, attacks the diff; I trust only findings it reproduced." Say "second model" only when `/model` differs from the reviewer's `opus` (the verifier *is* a different model: sonnet).
 - **Don't:** critique before asking · trash the prototype (its builders are in the room: "help me understand why X was the right call") · propose rewrites for a tiny request rate · enforce permissions in a prompt · sell speed · show env, `.env`, tokens or prep docs on screen · paste their code into other tools.
 
@@ -134,7 +136,7 @@ Access matrix for shape 1: owner allow · peer deny · manager of owner's team a
 
 ## 10 · Before the day
 
-**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same self-test with `--live` instead of `--quick` once, and in each repo you will use (the rehearsal copy included) `bash ~/claude-toolkit/install.sh` · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/break [the feature]`, `/gate [main]`, `/pr-brief [main]`), then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
+**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same self-test with `--live` instead of `--quick` once, and in each repo you will use (the rehearsal copy included) `bash ~/claude-toolkit/install.sh --set live` · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/team review main`, `/pr-brief [main]`), including one team so you have seen the agent list and the shutdown before the day, then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
 **T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
 **After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `git worktree remove` each worktree, then `bash ~/claude-toolkit/install.sh --uninstall` in the repo; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
 

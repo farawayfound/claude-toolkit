@@ -5,9 +5,9 @@
 //   node dropin.mjs remove <part ...|all>      [--repo DIR | --user] [--dry-run] [--home DIR]
 //   node dropin.mjs facts [DIR]                 prints the repo-facts block for CLAUDE.local.md
 // Parts: modules/index.json (`list` prints them). Groups: skills, agents, rules. Sets: repo = facts + rules + whatever ~/.claude lacks
-// (house rules, permissions, guard); default (install.sh) = all, or repo when an opt-in user layer exists;
-// all = every part (in --user mode: minus the per-repo rules and the opt-in hooks); safety, live and
-// takehome are the named sets in modules/sets.json. A part's `requires` come along (gate needs facts, verifier needs check, breaker needs break).
+// (house rules, permissions, guard); default = all, or repo when an opt-in user layer exists; all = every part that is not opt-in (in --user
+// mode: minus the per-repo rules); the named sets in modules/sets.json (full, live, takehome, unbound, safety; install.sh --set) may nest
+// sets and groups. A part's `requires` come along (gate needs facts, verifier needs check, breaker needs break, team needs teams).
 // Repo mode never touches git: created paths go to .git/info/exclude and `git status` must read the same before and after. A file is only
 // updated or removed while its content is what this tool wrote (hash in the manifest). Settings are merged, backed up once, and subtracted again.
 // Home: --home, else env DEV_TOOLKIT_HOME, else the OS home. Exit: 0 ok, 1 failed or leaked, 2 usage / not a repo / refused / invalid JSON, 3 git missing.
@@ -21,8 +21,8 @@ export const SETS = JSON.parse(fs.readFileSync(path.join(MOD, 'sets.json'), 'utf
 const GROUPS = { skills: 'skill', agents: 'agent', rules: 'rule' };
 const BLOCK = { 'house-rules': ['<!-- dev-toolkit:begin -->', '<!-- dev-toolkit:end -->'], facts: ['<!-- dev-toolkit:facts:begin -->', '<!-- dev-toolkit:facts:end -->'] };
 const EX = ['# >>> dev-toolkit', '# <<< dev-toolkit'];
-const OURS = /[\\/]\.claude[\\/]hooks(?:[\\/]tk)?[\\/](guard|gate|trail)\.mjs/;
-const HOOK_PART = { 'guard.mjs': 'guard', 'guard-rules.mjs': 'guard', 'gate.mjs': 'gate', 'detect.mjs': 'facts', 'trail.mjs': 'trail' };
+const OURS = /[\\/]\.claude[\\/]hooks(?:[\\/]tk)?[\\/](guard|gate|trail|teams)\.mjs/;
+const HOOK_PART = { 'guard.mjs': 'guard', 'guard-rules.mjs': 'guard', 'gate.mjs': 'gate', 'detect.mjs': 'facts', 'trail.mjs': 'trail', 'teams.mjs': 'teams' };
 export const fwd = (p) => p.replace(/\\/g, '/');
 export const die = (code, msg) => { console.error(`ERROR: ${msg}`); process.exit(code); };
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
@@ -152,7 +152,8 @@ function unmergeSettings(t, parts) { // subtract what the manifest says these pa
     dropPerms(s, a); dropHooks(s, a.hooks || []);
     for (const [k, v] of Object.entries(a.scalars || {})) if (JSON.stringify(s[k]) === JSON.stringify(v)) delete s[k];
     for (const [k, r] of Object.entries(a.replaced || {})) if (JSON.stringify(s[k]) === JSON.stringify(r.to)) s[k] = r.from; // a value the user changed since stays
-    if (a.env && s.env?.CLAUDE_CODE_GIT_BASH_PATH === a.env) { delete s.env.CLAUDE_CODE_GIT_BASH_PATH; if (!Object.keys(s.env).length) delete s.env; }
+    const envAdded = typeof a.env === 'string' ? { CLAUDE_CODE_GIT_BASH_PATH: a.env } : a.env || {}; // older manifests stored the Git Bash path as a string
+    for (const [k, v] of Object.entries(envAdded)) if (s.env?.[k] === v) delete s.env[k]; if (s.env && !Object.keys(s.env).length) delete s.env;
   }
   if (read(t.settingsFile) === null) return; if (JSON.stringify(s) === was) return note(t, 'unchanged', t.settingsFile);
   const orig = st.backup ? read(st.backup) : null; let same = false; try { same = !Object.keys(st.added).length && orig !== null && JSON.stringify(JSON.parse(orig)) === JSON.stringify(s); } catch { /* keep the surgical result */ }
@@ -176,7 +177,7 @@ function userHas(t, part) { // is this part already in the user layer (~/.claude
   let s = {}; try { s = JSON.parse(read(path.join(t.CL, 'settings.json')) || '{}'); } catch { return false; }
   return Object.values(s.hooks || {}).flat().some((g) => kindOf(g) === 'guard') && fs.existsSync(path.join(t.CL, 'hooks/guard.mjs'));
 }
-export function resolve(names, t) { // explicit names, groups and sets, with each part's requires placed first
+export function resolve(names, t, seen = new Set()) { // explicit names, groups and sets (which may nest sets and groups), with each part's requires placed first
   const out = []; const push = (n) => { if (!out.includes(n)) { for (const r of INDEX[n].requires || []) push(r); out.push(n); } };
   for (const n of names) {
     if (n === 'all') for (const p of Object.keys(INDEX)) { if (!INDEX[p].optIn && (t.mode === 'repo' || INDEX[p].kind !== 'rule')) push(p); } // opt-in hooks (gate, trail) are named explicitly; rules are per-repo
@@ -187,7 +188,7 @@ export function resolve(names, t) { // explicit names, groups and sets, with eac
       resolve([lean ? 'repo' : 'all'], t).forEach(push);
     }
     else if (GROUPS[n]) partsOfKind(GROUPS[n]).forEach(push);
-    else if (SETS[n]) SETS[n].forEach(push);
+    else if (SETS[n]) { if (!seen.has(n)) { seen.add(n); resolve(SETS[n], t, seen).forEach(push); } }
     else if (INDEX[n]) push(n);
     else die(2, `unknown part '${n}' (node dropin.mjs list)`);
   }
@@ -202,7 +203,9 @@ export async function add(t, names) {
     for (const [dest, f] of Object.entries(t.state.files)) if (f.part === name && !files.some(([, d]) => d === dest)) removeFile(t, dest); // paths this part no longer ships
     const snip = readJson(path.join(MOD, name, 'settings.json')); const hooksDir = fwd(path.join(t.base, t.hooksRel));
     if (snip) mergeSettings(t, name, (s, added) => { const r = JSON.parse(JSON.stringify(snip).split('__HOOKS_DIR__').join(hooksDir)); addPerms(s, r.permissions || {}, added); addHooks(s, r.hooks || {}, added);
-      for (const [k, v] of Object.entries(r)) { if (['permissions', 'hooks'].includes(k)) continue; if (s[k] === undefined) { s[k] = v; (added.scalars ||= {})[k] = v; } else if (JSON.stringify(s[k]) !== JSON.stringify(v)) warn(t, `${name}: settings key ${k} is already ${JSON.stringify(s[k])}; left as is (the part expects ${JSON.stringify(v)})`); } }); // other keys: set only when absent, removed with the part
+      for (const [k, v] of Object.entries(r)) { if (['permissions', 'hooks'].includes(k)) continue;
+        if (k === 'env') { for (const [ek, ev] of Object.entries(v)) { s.env ||= {}; if (s.env[ek] === undefined) { s.env[ek] = ev; (added.env ||= {})[ek] = ev; } else if (s.env[ek] !== ev) warn(t, `${name}: env.${ek} is already ${JSON.stringify(s.env[ek])}; left as is (the part expects ${JSON.stringify(ev)})`); } continue; } // env keys merge one by one and leave with the part
+        if (s[k] === undefined) { s[k] = v; (added.scalars ||= {})[k] = v; } else if (JSON.stringify(s[k]) !== JSON.stringify(v)) warn(t, `${name}: settings key ${k} is already ${JSON.stringify(s[k])}; left as is (the part expects ${JSON.stringify(v)})`); } }); // other keys: set only when absent, removed with the part
     if (p.kind === 'claude') addBlock(t, name, fs.readFileSync(path.join(MOD, name, 'CLAUDE.md'), 'utf8'));
     if (name === 'facts' && t.mode === 'repo') {
       const { detect } = await import('./modules/facts/detect.mjs'); const { renderFacts } = await import('./modules/facts/facts.mjs'); const det = detect(t.root);
@@ -214,7 +217,7 @@ export async function add(t, names) {
   return list;
 }
 export function removeParts(t, names) {
-  const have = installed(t); const pick = (n) => (['all', 'repo', 'default'].includes(n) ? have : GROUPS[n] ? have.filter((p) => INDEX[p].kind === GROUPS[n]) : SETS[n] ? SETS[n].filter((p) => have.includes(p)) : INDEX[n] ? [n] : die(2, `unknown part '${n}'`));
+  const have = installed(t); const pick = (n, seen = new Set()) => (['all', 'repo', 'default'].includes(n) ? have : GROUPS[n] ? have.filter((p) => INDEX[p].kind === GROUPS[n]) : SETS[n] ? (seen.has(n) ? [] : (seen.add(n), SETS[n].flatMap((m) => pick(m, seen)).filter((p) => have.includes(p)))) : INDEX[n] ? [n] : die(2, `unknown part '${n}'`));
   let list = [...new Set(names.flatMap(pick))].filter((n) => have.includes(n) || console.log(`  skipped   ${n} (not installed here)`));
   const keep = list.filter((n) => have.some((o) => !list.includes(o) && (INDEX[o].requires || []).includes(n)));
   for (const n of keep) warn(t, `${n} stays: an installed part requires it`); list = list.filter((n) => !keep.includes(n));
@@ -242,7 +245,7 @@ export function finish(t, removing = false) { // exclude block (repo), empty-dir
   if (t.dry) return console.log(`Dry run: ${c.created} to create, ${c.updated} to update, ${c.removed} to remove, ${c.unchanged} unchanged, ${c.skipped} skipped. Nothing was written.`);
   if (t.mode === 'repo') { const ok = new Set([...lines(st.snapshot), ...lines(t.snapshot)]); const leaked = [...lines(t.porcelain())].filter((l) => !ok.has(l)); if (leaked.length) die(1, `git status changed; these paths leaked into the working tree:\n  ${leaked.join('\n  ')}`); }
   console.log(`${c.created} created, ${c.updated} updated, ${c.removed} removed, ${c.unchanged} unchanged, ${c.skipped} skipped${t.mode === 'repo' ? '; git status unchanged' : ''}.${t.warns.length ? ` ${t.warns.length} warning(s) above.` : ''}`);
-  if (t.mode === 'repo' && !removing) console.log('Next: start claude in this folder, accept the trust prompt, then type /orient [topic] at its prompt');
+  if (t.mode === 'repo' && !removing) console.log('Next: start claude in this folder, accept the trust prompt, then type /recon [topic] at its prompt');
 }
 
 // ---- CLI
@@ -252,7 +255,7 @@ async function main() {
   if (cmd === 'list') {
     for (const [n, p] of Object.entries(INDEX)) console.log(`${n.padEnd(18)}${p.kind.padEnd(10)}${(p.requires ? `needs ${p.requires.join(', ')}` : '').padEnd(14)}${p.what}`);
     for (const [s, parts] of Object.entries(SETS)) console.log(`set ${s.padEnd(14)}${parts.join(', ')}`);
-    return console.log('\ngroups: skills, agents, rules    sets: default (what install.sh places), repo (facts + rules + whatever ~/.claude lacks), all, and the named sets above');
+    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + whatever ~/.claude lacks), default (all, or repo when ~/.claude has the user layer), all (every part that is not opt-in), and the named sets above (install.sh --set <name>)');
   }
   if (cmd === 'facts') { const { renderFacts } = await import('./modules/facts/facts.mjs'); return console.log(renderFacts(path.resolve(names[0] || '.'))); }
   if (!['add', 'remove'].includes(cmd) || !names.length) die(2, 'usage: node dropin.mjs list | add <parts> [--repo DIR | --user] | remove <parts | all> [--repo DIR | --user] | facts [DIR]');

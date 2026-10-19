@@ -1,6 +1,6 @@
 ---
 name: deslop
-description: "Use after a feature or fix is green and before review: removes generated slop from the change (narrating comments, defensive checks the codebase does not use, one-use wrappers, dead parameters, redundant tests, over-general abstractions) without changing behaviour, and reports the bulk of the change against the brief."
+description: "Use after a change is green and before review: removes generated slop (narrating comments, unused defensiveness, one-use wrappers, dead parameters, redundant tests) without changing behaviour, and reports the bulk of the change against the brief."
 argument-hint: "[base branch or path]"
 ---
 

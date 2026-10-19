@@ -1,6 +1,6 @@
 ---
 name: access-control
-description: "Use when a change touches who may read or change which records (ownership, team or manager hierarchy, roles, scopes, tokens): finds the single chokepoint and every bypass, takes identity from the authenticated context, and drives a deny-by-default test matrix with an audit line per decision."
+description: "Use when a change touches who may read or change which records (ownership, hierarchy, roles, scopes): the single chokepoint and every bypass, identity from the authenticated context, a deny-by-default test matrix, one audit line per decision."
 argument-hint: "[resource or action]"
 ---
 

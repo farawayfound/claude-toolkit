@@ -26,7 +26,7 @@ For each step capture the exact command, its exit code and the last ~15 lines of
 
 ## 3. Classify
 - Re-run a failing test once on its own; if it then passes, label it `flaky`.
-- Compare with the baseline from this session (/orient, or the first run of the suite) and label each failure `new` or `pre-existing`. With no baseline, label it `unknown (no baseline)`; do not stash or reset to find out.
+- Compare with the baseline from this session (/recon, or the first run of the suite) and label each failure `new` or `pre-existing`. With no baseline, label it `unknown (no baseline)`; do not stash or reset to find out.
 - A check that cannot run (missing tool, service or credentials): `not verified: <missing piece>`, plus the exact command that would run it.
 
 ## 4. Churn guard

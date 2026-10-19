@@ -1,6 +1,6 @@
 ---
 name: recon
-description: "Use at the start of work in an unfamiliar repository, or before planning a change in code you have not read: parallel read-only reconnaissance (commands and baseline, code path to the side effect, bypasses, test conventions) condensed into one brief."
+description: "Use at the start of work in an unfamiliar repository, or before planning a change in code you have not read: read-only reconnaissance (commands and baseline, code path to the side effect, bypasses, test conventions) by four parallel agents, or the same four passes in sequence, condensed into one brief."
 argument-hint: "[topic]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[topic]"
 
 Read-only: no edits, installs, commits or branch switches. Never open .env or other secret files.
 
-Launch all four in ONE message so they run concurrently. Each brief is self-contained and asks for at most 15 lines with file:line evidence.
+Launch all four in ONE message so they run concurrently. Each brief is self-contained and asks for at most 15 lines with file:line evidence. Without subagents (no Agent tool, or a budget that forbids them), do the same four passes yourself in this order and keep the same output.
 1. **verifier** agent, background. Baseline at HEAD: resolve the format, lint, typecheck and test commands (each `confirmed-by-CI` or `unverified`), run each once, report the table and any pre-existing failures verbatim.
 2. **Explore** agent. Code path: trace "$ARGUMENTS" from its entrypoint (route, CLI command, tool handler, job) to the side effect (API call, DB write, file write) as numbered file:line steps. Name the single chokepoint where a check or fix belongs.
 3. **Explore** agent. Blast radius: every other path that reaches the same side effect without passing that chokepoint (bulk, delete, raw passthrough, background jobs, scripts); where identity, config and credentials are loaded, by file and variable name only, never values.

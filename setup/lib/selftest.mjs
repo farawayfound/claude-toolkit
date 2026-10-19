@@ -70,7 +70,7 @@ const rules = exists(RU) ? fs.readdirSync(RU).filter(isPart) : [];
 const hookSrc = byKind('hook').flatMap((n) => (INDEX[n].files || []).map((f) => [n, f, path.join(MOD, n, f)])); // [part, file, source]
 const HK = path.join(TMP, 'hooks'); fs.mkdirSync(HK); for (const [, f, s] of hookSrc) if (exists(s)) fs.copyFileSync(s, path.join(HK, f)); // hooks run from one dir, as installed
 const hookMods = hookSrc.map(([, f]) => f);
-const JSONS = ['modules/index.json', 'modules/sets.json', 'modules/permissions/settings.json', 'modules/guard/settings.json', 'modules/gate/settings.json', 'modules/trail/settings.json', 'modules/gate-workflow/settings.json', 'setup/tests/hook-cases.json', 'setup/mcp.json.example'];
+const JSONS = ['modules/index.json', 'modules/sets.json', 'modules/permissions/settings.json', 'modules/guard/settings.json', 'modules/gate/settings.json', 'modules/trail/settings.json', 'modules/teams/settings.json', 'modules/gate-workflow/settings.json', 'setup/tests/hook-cases.json', 'setup/mcp.json.example'];
 const jsonBad = JSONS.filter((f) => { try { JSON.parse(read(path.join(TK, f))); return false; } catch { return true; } });
 ok('A1', 'index.json, settings snippets, hook-cases.json, mcp.json.example parse', !jsonBad.length, `invalid: ${jsonBad.join(', ')}`);
 const SKEYS = ['name', 'description', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools', 'context', 'paths', 'model', 'effort'];
@@ -91,7 +91,7 @@ ok('A6', 'no CR in .mjs/.md/.json/.sh; .ps1/.cmd are ASCII', !crBad.length && !a
 const chk = all.filter((f) => f.endsWith('.mjs')).map((f) => [f, sh('node', ['--check', path.join(TK, f)])]).filter(([, r]) => r.code !== 0);
 ok('A7', 'node --check on every .mjs', !chk.length, chk.map(([f, r]) => `${f}: ${tail(r, 1)}`).join('; '));
 const snippet = (n) => { try { return JSON.parse(read(path.join(MOD, n, 'settings.json'))); } catch { return {}; } };
-const hookRefs = ['guard', 'gate', 'trail'].flatMap((n) => settingsCmds(snippet(n)).map(([, c]) => (/__HOOKS_DIR__\/([\w.-]+\.mjs)/.exec(c) || [])[1]));
+const hookRefs = ['guard', 'gate', 'trail', 'teams'].flatMap((n) => settingsCmds(snippet(n)).map(([, c]) => (/__HOOKS_DIR__\/([\w.-]+\.mjs)/.exec(c) || [])[1]));
 ok('A8', 'every hook command references a script a hook part ships', hookRefs.length >= 6 && hookRefs.every((h) => h && hookMods.includes(h)), `refs: ${hookRefs.join(', ')}`);
 const perms = ['allow', 'ask', 'deny'].flatMap((k) => snippet('permissions').permissions?.[k] || []);
 const pBad = perms.filter((p) => !/^(Bash|Read|Edit)\(.+\)$/.test(p) || (p.startsWith('Bash(') && !p.endsWith(':*)')));
@@ -120,9 +120,9 @@ const wfBad = wfs.filter((f) => { const t = readIf(path.join(TK, f)); if (!/^exp
   return sh('node', ['--check'], { input: `(async () => {\n${t.replace(/^export const meta =/m, 'const meta =')}\n})` }).code !== 0; });
 ok('A16', `workflow scripts export meta and parse (${wfs.length})`, wfs.length >= 1 && !wfBad.length, wfBad.join(', '));
 let SETS = {}; try { SETS = JSON.parse(read(path.join(MOD, 'sets.json'))); } catch { /* reported in A1 */ }
-const setBad = Object.entries(SETS).flatMap(([s, parts]) => parts.filter((p) => !INDEX[p]).map((p) => `${s}: ${p}`));
+const setBad = Object.entries(SETS).flatMap(([s, parts]) => parts.filter((p) => !INDEX[p] && !SETS[p] && !['all', 'repo', 'default', 'skills', 'agents', 'rules'].includes(p)).map((p) => `${s}: ${p}`));
 const README_TK = readIf(path.join(TK, 'README.md')); const unlisted = Object.keys(INDEX).filter((n) => !new RegExp(`\`${n}\``).test(README_TK));
-ok('A17', 'sets name real parts; README.md lists every part and set', !setBad.length && !unlisted.length && Object.keys(SETS).every((s) => README_TK.includes(`\`${s}\``)), [setBad.join(', '), unlisted.length ? `not in README: ${unlisted.join(', ')}` : ''].filter(Boolean).join('; '));
+ok('A17', 'sets name real parts, sets or groups; README.md lists every part and set', !setBad.length && !unlisted.length && Object.keys(SETS).every((s) => README_TK.includes(`\`${s}\``)), [setBad.join(', '), unlisted.length ? `not in README: ${unlisted.join(', ')}` : ''].filter(Boolean).join('; '));
 const CMDS = new Set([...skills, ...byKind('workflow').map((w) => w.replace(/-workflow$/, '')), ...BUILTIN, 'hooks', 'skills', 'agents', 'model', 'tasks', 'btw', 'rewind', 'compact', 'context', 'permissions', 'exit', 'logout', 'login', 'status', 'workflows', 'batch', 'help', 'memory', 'skill-doctor', 'effort', 'config', 'export', 'rename', 'clear', 'resume', 'fast', 'mcp', 'plugin', 'commit-commands:commit-push-pr', 'pr-review-toolkit:review-pr', 'commit-commands:commit']);
 const docFiles = ['README.md', 'Quickstart.md', 'modules/house-rules/CLAUDE.md', ...walk(path.join(TK, 'docs')).map((f) => `docs/${f}`)].filter((f) => exists(path.join(TK, f)));
 const badRefs = docFiles.flatMap((f) => [...new Set([...readIf(path.join(TK, f)).matchAll(/(?<=^|[\s`(])\/([a-z][\w:-]*)(?=$|[\s`),.;:])/gm)].map((m) => m[1]))].filter((c) => !CMDS.has(c)).map((c) => `${f}: /${c}`));
@@ -187,7 +187,7 @@ const g1 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH]); ok('
 let gs = {}; try { gs = JSON.parse(read(GS)); } catch { /* checked below */ }
 ok('E1.2', 'unrelated settings keys preserved', gs.theme === 'dark' && JSON.stringify(gs.enabledPlugins) === JSON.stringify(seed.enabledPlugins) && JSON.stringify(gs.custom) === JSON.stringify(seed.custom) && gs.permissions?.allow?.[0] === 'Bash(make:*)', JSON.stringify(gs).slice(0, 200));
 const userHooks = hookSrc.filter(([n]) => !INDEX[n].optIn).map(([, f]) => f);
-const placed = [...skills.map((s) => `skills/${s}/SKILL.md`), ...agents.map((a) => `agents/${a}.md`), ...userHooks.map((h) => `hooks/${h}`), ...wfs.map((f) => `workflows/${path.basename(f)}`), 'dev-toolkit/install.ps1', 'dev-toolkit/dropin.mjs', 'dev-toolkit/setup/lib/install.mjs', 'CLAUDE.md'];
+const placed = [...skills.filter((s) => !INDEX[s].optIn).map((s) => `skills/${s}/SKILL.md`), ...agents.map((a) => `agents/${a}.md`), ...userHooks.map((h) => `hooks/${h}`), ...wfs.map((f) => `workflows/${path.basename(f)}`), 'dev-toolkit/install.ps1', 'dev-toolkit/dropin.mjs', 'dev-toolkit/setup/lib/install.mjs', 'CLAUDE.md'];
 const gMiss = placed.filter((p) => !exists(path.join(GH, '.claude', p))); ok('E1.3', 'skills, agents, hooks, dev-toolkit mirror, CLAUDE.md block present', !gMiss.length && readIf(path.join(GH, '.claude/CLAUDE.md')).includes('<!-- dev-toolkit:begin -->'), `missing: ${gMiss.join(', ')}`);
 const gcmd = settingsCmds(gs).find(([ev, c]) => ev === 'PreToolUse' && /guard\.mjs/.test(c))?.[1] || '';
 ok('E1.4', 'guard hook rendered with an absolute path that exists', gcmd && !gcmd.includes('__HOOKS_DIR__') && exists(scriptOf(gcmd) || ''), gcmd || 'no guard entry');
@@ -195,31 +195,39 @@ ok('E1.5', 'gate hooks are not registered globally; no rules in ~/.claude', !set
 const h1 = treeHash(path.join(GH, '.claude')); const g2 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH]);
 ok('E1.6', 'second global install is idempotent', g2.code === 0 && treeHash(path.join(GH, '.claude')) === h1, tail(g2));
 
-// C: the installers in sample repos (Python + Node + Go). C0-C10 and C13 test the lean repo set (-Lean) against the temp HOME user layer;
-// C1.1 tests the default, which places every part in the repo and nothing in HOME.
+const teamsHook = path.join(HK, 'teams.mjs'); const teamsHome = path.join(TMP, 'teams-home'); fs.mkdirSync(teamsHome);
+const tev = (o) => sh('node', [teamsHook], { input: JSON.stringify({ session_id: 's1', cwd: TMP, team_name: 'session-abcd1234', ...o }), env: { HOME: teamsHome, USERPROFILE: teamsHome } });
+const t1 = tev({ hook_event_name: 'TaskCreated', task_id: 't1', task_subject: 'write the deny test', teammate_name: 'build-store' });
+const t2 = tev({ hook_event_name: 'TaskCompleted', task_id: 't1', task_subject: 'write the deny test', task_description: 'Done, all good', teammate_name: 'build-store' });
+const t3 = tev({ hook_event_name: 'TaskCompleted', task_id: 't1', task_subject: 'write the deny test', task_description: 'Evidence: `uv run --frozen pytest -q tests/test_deny.py` exit 1 (RED as planned)', teammate_name: 'build-store' });
+const t4 = tev({ hook_event_name: 'TaskCompleted', task_id: 't2', task_subject: 'lead bookkeeping', task_description: 'no evidence here' }); const t5 = tev({ hook_event_name: 'TeammateIdle', teammate_name: 'build-store' }); const t6 = tev({ hook_event_name: 'UserPromptSubmit', prompt: 'x' });
+const teamsLog = readIf(path.join(teamsHome, '.claude/logs/teams.jsonl')).trim().split('\n').filter(Boolean);
+ok('B5', 'teams hook: logs TaskCreated, TaskCompleted and TeammateIdle; refuses a teammate completion without evidence (exit 2, reason on stderr); lets evidence, the lead and other events through; prints nothing', t1.code === 0 && t2.code === 2 && /evidence/i.test(t2.err) && t3.code === 0 && t4.code === 0 && t5.code === 0 && t6.code === 0 && !`${t1.out}${t3.out}${t5.out}`.trim() && teamsLog.length === 5 && teamsLog.every((l) => { try { return !!JSON.parse(l).ev; } catch { return false; } }), `exits ${[t1, t2, t3, t4, t5, t6].map((r) => r.code).join(',')}; t2 err ${JSON.stringify(t2.err.slice(0, 80))}; log lines ${teamsLog.length}`);
+
+// C: the installers in sample repos (Python + Node + Go). C0-C10 and C13 test the base set (-Set repo) against the temp HOME user layer;
+// C1.1 tests the full set (no -Set, input redirected), which places every part in the repo and nothing in HOME; C14 dry-runs every named set.
 const A = mkRepo('A', scenarioA); const B = mkRepo('B', scenarioB, untrackedB); const sA = porc(A); const sB = porc(B);
 const env = { DEV_TOOLKIT_HOME: GH };
-const dropArgs = (x) => (x.includes('-Uninstall') ? ['remove', 'all'] : [...(x.includes('-Lean') ? ['add', 'repo'] : ['add', 'all']), ...(x.includes('-Gate') ? ['gate'] : []), ...(x.includes('-DryRun') ? ['--dry-run'] : [])]);
+const dropArgs = (x) => (x.includes('-Uninstall') ? ['remove', 'all'] : [...(x.includes('repo') ? ['add', 'repo'] : ['add', 'all']), ...(x.includes('-Gate') ? ['gate'] : []), ...(x.includes('-DryRun') ? ['--dry-run'] : [])]);
 const insA = (...x) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', A, ...x], env) : drop([...dropArgs(x), '--repo', A], env));
 const insB = (...x) => (BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(B), ...x], { env }) : null);
-const hA0 = treeHash(A); const dr = insA('-Lean', '-DryRun');
-ok('C0', 'install -Lean -DryRun writes nothing', dr.code === 0 && treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')), tail(dr));
+const hA0 = treeHash(A); const dr = insA('-Set', 'repo', '-DryRun');
+ok('C0', 'install -Set repo -DryRun writes nothing', dr.code === 0 && treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')), tail(dr));
 if (WIN) {
   const pristine = () => treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json'));
-  const wi = insA('-Lean', '-WhatIf'); ok('C0.1', 'install.ps1 -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
+  const wi = insA('-Set', 'repo', '-WhatIf'); ok('C0.1', 'install.ps1 -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
   const ty = insA('-Unistall'); ok('C0.2', 'install.ps1 rejects a misspelled flag (-Unistall), writes nothing', ty.code !== 0 && pristine(), tail(ty));
 }
 const Dd = mkRepo('D', scenarioA); const sD = porc(Dd); const hGH = treeHash(GH); const noUser = path.join(TMP, 'no-user-home'); fs.mkdirSync(noUser);
-const inst = (dir, e, full) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', dir, ...(full ? ['-Full'] : [])], e)
-  : BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(dir), ...(full ? ['--full'] : [])], { env: e }) : drop(['add', full ? 'all' : 'default', '--repo', dir], e));
+const inst = (dir, e) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', dir], e) : BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(dir)], { env: e }) : drop(['add', 'full', '--repo', dir], e));
 const isFull = (d) => readIf(path.join(d, 'CLAUDE.local.md')).includes('<!-- dev-toolkit:begin -->') && ['hooks/tk/guard.mjs', 'skills/check/SKILL.md', 'skills/parallel/scripts/wt-new', 'agents/reviewer.md', 'rules/tk-python.md'].every((f) => exists(path.join(d, '.claude', f)));
-const d1 = inst(Dd, { DEV_TOOLKIT_HOME: noUser, HOME: noUser, USERPROFILE: noUser }); const dFull = isFull(Dd); const d2 = drop(['remove', 'all', '--repo', Dd], env);
-ok('C1.1', 'default install without a user layer: every part in the repo (rules, guard, skills, agents); HOME untouched; removal clean', d1.code === 0 && dFull && porc(Dd) === sD && !walk(noUser).length && d2.code === 0 && !exists(path.join(Dd, '.claude')) && porc(Dd) === sD, `${tail(d1, 1)}; full ${dFull}; HOME files ${walk(noUser).join(', ')}`);
+const d1 = inst(Dd, { DEV_TOOLKIT_HOME: noUser, HOME: noUser, USERPROFILE: noUser }); const dFull = isFull(Dd) && ['hooks/tk/trail.mjs', 'hooks/tk/teams.mjs', 'skills/team/SKILL.md'].every((f) => exists(path.join(Dd, '.claude', f))); const d2 = drop(['remove', 'all', '--repo', Dd], env);
+ok('C1.1', 'install with no -Set and input redirected, no user layer: the full set in the repo (rules, guard, skills, agents, trail, team); HOME untouched; removal clean', d1.code === 0 && dFull && porc(Dd) === sD && !walk(noUser).length && d2.code === 0 && !exists(path.join(Dd, '.claude')) && porc(Dd) === sD, `${tail(d1, 1)}; full ${dFull}; HOME files ${walk(noUser).join(', ')}`);
 const d3 = inst(Dd, env); const dLean = !isFull(Dd) && !exists(path.join(Dd, '.claude/hooks/tk/guard.mjs')) && exists(path.join(Dd, '.claude/rules/tk-python.md')); drop(['remove', 'all', '--repo', Dd], env);
-const d4 = inst(Dd, env, true); const dFull2 = isFull(Dd); const d5 = drop(['remove', 'all', '--repo', Dd], env);
-ok('C1.2', 'with a user layer present: the default adds only what it lacks (no second guard or house rules) and says so; -Full places every part; HOME unchanged', d3.code === 0 && dLean && /user layer found/.test(d3.out) && d4.code === 0 && dFull2 && d5.code === 0 && porc(Dd) === sD && treeHash(GH) === hGH, `${tail(d3, 1)}; lean ${dLean}; full ${dFull2}`);
-const a1 = insA('-Lean'); ok('C1', `${WIN ? 'install.ps1 -Lean -Target <A>' : 'dropin add repo --repo <A>'} exits 0`, a1.code === 0, tail(a1));
-const b1 = insB('--lean'); if (!b1) res('C2', 'install.sh --lean --target <B> exits 0', 'WARN', 'Git Bash not found: skipped'); else ok('C2', 'install.sh --lean --target <B> (Git Bash) exits 0', b1.code === 0, tail(b1));
+const d4 = drop(['add', 'all', '--repo', Dd], env); const dFull2 = isFull(Dd); const d5 = drop(['remove', 'all', '--repo', Dd], env);
+ok('C1.2', 'with a user layer present: the full set adds only what it lacks (no second guard or house rules) and says so; add all places every part; HOME unchanged', d3.code === 0 && dLean && /user layer found/.test(d3.out) && d4.code === 0 && dFull2 && d5.code === 0 && porc(Dd) === sD && treeHash(GH) === hGH, `${tail(d3, 1)}; lean ${dLean}; full ${dFull2}`);
+const a1 = insA('-Set', 'repo'); ok('C1', `${WIN ? 'install.ps1 -Set repo -Target <A>' : 'dropin add repo --repo <A>'} exits 0`, a1.code === 0, tail(a1));
+const b1 = insB('--set', 'repo'); if (!b1) res('C2', 'install.sh --set repo --target <B> exits 0', 'WARN', 'Git Bash not found: skipped'); else ok('C2', 'install.sh --set repo --target <B> (Git Bash) exits 0', b1.code === 0, tail(b1));
 const la = readIf(path.join(A, 'CLAUDE.local.md')); const lb = readIf(path.join(B, 'CLAUDE.local.md'));
 ok('C3', "A's CLAUDE.local.md lists uv run --frozen pytest, npm test, go test ./...", expected.A.test.every((c) => la.includes(`\`${c}\``)), la.slice(0, 200));
 ok('C4', "B's CLAUDE.local.md: make test first, @AGENTS.md", (/\| test \| `([^`]+)`/.exec(lb) || [])[1] === expected.B.testFirst && lb.includes('@AGENTS.md'), lb.slice(0, 200));
@@ -228,11 +236,11 @@ const allows = (d, c) => (allowOf(d) || []).some((r) => { const m = /^Bash\((.+)
 ok('C5', 'settings.local.json parses and allows the detected test commands', allowOf(A) && allowOf(B) && expected.A.test.every((c) => allows(A, c)) && allows(B, expected.B.testFirst), JSON.stringify(allowOf(A)));
 ok('C6', "B's tracked CLAUDE.md and .claude/settings.json are byte-identical", readIf(path.join(B, 'CLAUDE.md')) === scenarioB['CLAUDE.md'] && readIf(path.join(B, '.claude/settings.json')) === scenarioB['.claude/settings.json'], 'tracked file changed');
 ok('C7', 'git status --porcelain unchanged in A and B; the user layer is not duplicated into the repo', porc(A) === sA && porc(B) === sB && !la.includes('<!-- dev-toolkit:begin -->') && !exists(path.join(A, '.claude/hooks/tk/guard.mjs')), `${porc(A)} | ${porc(B)} | rules block: ${la.includes('<!-- dev-toolkit:begin -->')}`);
-const tA = treeHash(A); const tB = treeHash(B); const a2 = insA('-Lean'); const b2 = insB('--lean');
+const tA = treeHash(A); const tB = treeHash(B); const a2 = insA('-Set', 'repo'); const b2 = insB('--set', 'repo');
 const once = (d) => (readIf(gitPath(d, 'info/exclude')).match(/# >>> dev-toolkit/g) || []).length === 1;
 ok('C8', 'second run: identical file hashes; exclude block exactly once', a2.code === 0 && treeHash(A) === tA && (!b2 || (b2.code === 0 && treeHash(B) === tB)) && once(A) && once(B), `${tail(a2, 1)} ${b2 ? tail(b2, 1) : ''}`);
 ok('C9', "B's pre-existing CLAUDE.local.md text is preserved", lb.endsWith(`\n${untrackedB['CLAUDE.local.md']}`), JSON.stringify(lb.slice(-40)));
-const ag = insA('-Lean', '-Gate'); let ls = {}; try { ls = JSON.parse(read(path.join(A, '.claude/settings.local.json'))); } catch { /* checked below */ }
+const ag = insA('-Set', 'repo', '-Gate'); let ls = {}; try { ls = JSON.parse(read(path.join(A, '.claude/settings.local.json'))); } catch { /* checked below */ }
 const gateCmds = settingsCmds(ls).filter(([, c]) => /gate\.mjs/.test(c));
 ok('C10', '-Gate adds the 4 gate entries (scripts exist)', ag.code === 0 && gateCmds.length === 4 && gateCmds.every(([, c]) => exists(scriptOf(c) || '')) && porc(A) === sA, `${tail(ag, 1)}; gate entries ${gateCmds.length}`);
 const P = mkRepo('P', scenarioA); const sP = porc(P); const empty = path.join(TMP, 'empty-home'); fs.mkdirSync(empty);
@@ -248,6 +256,8 @@ const ua = insA('-Uninstall'); const ub = insB('--uninstall'); const up = drop([
 const clean = (d) => !readIf(gitPath(d, 'info/exclude')).includes('dev-toolkit') && !exists(gitPath(d, 'dev-toolkit.json'));
 ok('C13', '--uninstall restores porcelain, B user text, exclude file', ua.code === 0 && up.code === 0 && porc(A) === sA && porc(P) === sP && clean(A) && clean(P) && !exists(path.join(A, 'CLAUDE.local.md')) && !exists(path.join(A, '.claude')) && !exists(path.join(P, '.claude'))
   && (!ub || (ub.code === 0 && porc(B) === sB && read(path.join(B, 'CLAUDE.local.md')) === untrackedB['CLAUDE.local.md'] && clean(B))), `${tail(ua, 1)} ${ub ? tail(ub, 1) : ''} ${tail(up, 1)}`);
+const setRuns = Object.keys(SETS).map((s) => [s, drop(['add', s, '--repo', A, '--dry-run'], env)]); const liveOut = setRuns.find(([s]) => s === 'live')?.[1].out || '';
+ok('C14', `every named set dry-runs (${Object.keys(SETS).join(', ')}); live places reviewer, team and trail but no break, parallel or gate workflow`, setRuns.every(([, r]) => r.code === 0) && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')) && /reviewer/.test(liveOut) && /skills\/team\//.test(liveOut) && /trail\.mjs/.test(liveOut) && !/skills\/(break|parallel)\/|gate\.js/.test(liveOut), setRuns.filter(([, r]) => r.code !== 0).map(([s, r]) => `${s}: ${tail(r, 1)}`).join('; ') || liveOut.split('\n')[0]);
 const g4 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH, '--model', 'probe-model', '--effort', 'low']); let g4s = {}; try { g4s = JSON.parse(read(GS)); } catch { /* checked below */ }
 ok('E1.7', '--model/--effort replace the existing model and effortLevel', g4.code === 0 && g4s.model === 'probe-model' && g4s.effortLevel === 'low', `${tail(g4, 1)}; model ${g4s.model}, effortLevel ${g4s.effortLevel}`);
 const g3 = sh('node', [INST, 'global', '--uninstall', '--home', GH]);
@@ -271,8 +281,8 @@ const g8 = drop(['remove', 'facts', '--repo', Gr], genv); const g9 = drop(['remo
 ok('G3', 'remove facts is refused while gate needs it; remove gate keeps facts', g8.code === 0 && /facts stays/.test(g8.out) && exists(path.join(Gr, '.claude/hooks/tk/detect.mjs')) && g9.code === 0 && !exists(path.join(Gr, '.claude/hooks/tk/gate.mjs')) && !settingsCmds(gsl2).some(([, c]) => /gate\.mjs/.test(c)) && readIf(path.join(Gr, 'CLAUDE.local.md')).includes('facts:begin'), `${tail(g8, 1)} | ${tail(g9, 1)}`);
 const g10 = drop(['remove', 'all', '--repo', Gr], genv);
 ok('G4', 'remove all returns the repo to its pre-install tree', g10.code === 0 && treeHash(Gr) === hG0 && porc(Gr) === sG && clean(Gr) && !exists(path.join(Gr, '.claude')), tail(g10));
-const U = path.join(TMP, 'user-home'); const g11 = drop(['add', 'orient', '--user', '--home', U]); const g12 = drop(['remove', 'orient', '--user', '--home', U]);
-ok('G5', 'add/remove one skill --user: file placed, no settings file created, home left empty', g11.code === 0 && /orient/.test(g11.out) && !exists(path.join(U, '.claude/settings.json')) && g12.code === 0 && !walk(path.join(U, '.claude')).length, `${tail(g11, 1)} | ${tail(g12, 1)}; left: ${walk(path.join(U, '.claude')).join(', ')}`);
+const U = path.join(TMP, 'user-home'); const g11 = drop(['add', 'recon', '--user', '--home', U]); const g12 = drop(['remove', 'recon', '--user', '--home', U]);
+ok('G5', 'add/remove one skill --user: file placed, no settings file created, home left empty', g11.code === 0 && /recon/.test(g11.out) && !exists(path.join(U, '.claude/settings.json')) && g12.code === 0 && !walk(path.join(U, '.claude')).length, `${tail(g11, 1)} | ${tail(g12, 1)}; left: ${walk(path.join(U, '.claude')).join(', ')}`);
 const g13 = drop(['add', 'nonsense', '--repo', Gr], genv); const g14 = drop(['add', 'check', '--repo', Gr, '--bogus'], genv);
 ok('G6', 'unknown part and unknown flag exit 2 and write nothing', g13.code === 2 && g14.code === 2 && treeHash(Gr) === hG0, `${tail(g13, 1)} | ${tail(g14, 1)}`);
 
