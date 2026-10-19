@@ -8,4 +8,4 @@
 - ask: `git push`, `gh pr create`, `gh pr merge`
 - deny: `git push --force`/`-f`, `git reset --hard`, `git clean`, `rm -rf`/`-fr`, `printenv`, `gh auth token`, reading or editing `*.env`
 
-Into a checkout: `node ~/claude-toolkit/dropin.mjs add permissions --repo .` (merged into `.claude/settings.local.json`; existing rules are kept). For every repo on this machine, use `--user` instead of `--repo .` (run it anywhere); it is merged into `~/.claude/settings.json` and backed up once. `remove` subtracts exactly these rules. The `guard` part covers much more (compound commands, `.env.*` variants, SQL, infra, supply chain) but needs node.
+Into a checkout: `node ~/claude-toolkit/dropin.mjs add permissions --repo .` (merged into `.claude/settings.local.json` and backed up once; existing rules are kept). `remove` subtracts exactly these rules. The `guard` part covers much more (compound commands, `.env.*` variants, SQL, infra, supply chain) but needs node.

@@ -85,7 +85,7 @@ const budget = [['modules/house-rules/CLAUDE.md', 60], ...rules.map((r) => [`mod
   ...hookSrc.map(([n, f]) => [`modules/${n}/${f}`, 70]), ...agents.map((a) => [`modules/agents/${a}.md`, 40])];
 const over = budget.filter(([f, n]) => !exists(path.join(TK, f)) || nlines(path.join(TK, f)) > n).map(([f, n]) => `${f} ${exists(path.join(TK, f)) ? nlines(path.join(TK, f)) : 'missing'}>${n}`);
 ok('A5', 'line budgets (CLAUDE.md 60, rules 45, skills 90, hooks 70, agents 40)', !over.length, over.join(', '));
-const all = walk(TK); const crBad = all.filter((f) => /\.(mjs|md|json|sh|example)$/.test(f) && read(path.join(TK, f)).includes('\r'));
+const all = walk(TK); const crBad = all.filter((f) => (/\.(mjs|md|json|sh|example)$/.test(f) || /^modules\/skills\/[^/]+\/scripts\/[^./]+$/.test(f)) && read(path.join(TK, f)).includes('\r'));
 const asciiBad = all.filter((f) => /\.(ps1|cmd)$/.test(f) && /[^\x00-\x7F]/.test(read(path.join(TK, f))));
 ok('A6', 'no CR in .mjs/.md/.json/.sh; .ps1/.cmd are ASCII', !crBad.length && !asciiBad.length, `CR: ${crBad.join(', ')} non-ASCII: ${asciiBad.join(', ')}`);
 const chk = all.filter((f) => f.endsWith('.mjs')).map((f) => [f, sh('node', ['--check', path.join(TK, f)])]).filter(([, r]) => r.code !== 0);
@@ -131,6 +131,15 @@ const GENERIC = new RegExp(`\\b(${['inter' + 'view\\w*', 'pan' + 'el\\w*', 'cand
 const payload = walk(MOD);
 const leaks = payload.filter((f) => GENERIC.test(readIf(path.join(MOD, f)))).map((f) => `${f}: "${GENERIC.exec(readIf(path.join(MOD, f)))[0]}"`);
 ok('A19', `payload wording is generic (${payload.length} files under modules/)`, !leaks.length, leaks.join(', '));
+const shScripts = payload.filter((f) => /^skills\/[^/]+\/scripts\/[^./]+$/.test(f) && /^#!.*\bbash\b/.test(readIf(path.join(MOD, f))));
+if (!BASH) res('A20', 'bash -n on skill shell scripts', 'WARN', 'Git Bash not found: skipped');
+else { const shBad = shScripts.filter((f) => sh(BASH, ['-n', fwd(path.join(MOD, f))]).code !== 0); ok('A20', `bash -n on skill shell scripts (${shScripts.length})`, shScripts.length >= 5 && !shBad.length, shBad.join(', ') || `found ${shScripts.length}`); }
+const modes = sh('git', ['ls-files', '-s', '--', 'modules/skills'], { cwd: TK }).out; // a POSIX clone runs them by name only with mode 100755 in git
+const modeOf = (f) => (modes.split('\n').find((l) => l.endsWith(`\tmodules/${f}`)) || '').split(' ')[0];
+const not755 = shScripts.filter((f) => modeOf(f) && modeOf(f) !== '100755'); const untrackedSh = shScripts.filter((f) => !modeOf(f));
+if (not755.length) res('A21', 'skill shell scripts are executable in git (100755)', 'WARN', `git add --chmod=+x ${not755.map((f) => `modules/${f}`).join(' ')}`);
+else if (untrackedSh.length) res('A21', 'skill shell scripts are executable in git (100755)', 'SKIP', `not tracked yet: commit them with git add --chmod=+x ${untrackedSh.map((f) => `modules/${f}`).join(' ')}`);
+else res('A21', `skill shell scripts are executable in git (${shScripts.length})`, 'PASS');
 
 // B: hook contracts (run from the staged hooks dir, the layout they are installed in)
 let cases = []; try { cases = JSON.parse(read(path.join(TK, 'setup/tests/hook-cases.json'))); } catch { /* reported in A1 */ }
@@ -186,21 +195,31 @@ ok('E1.5', 'gate hooks are not registered globally; no rules in ~/.claude', !set
 const h1 = treeHash(path.join(GH, '.claude')); const g2 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH]);
 ok('E1.6', 'second global install is idempotent', g2.code === 0 && treeHash(path.join(GH, '.claude')) === h1, tail(g2));
 
-// C: the repo set into sample repos (Python + Node + Go) through install.ps1 / install.sh, with the temp HOME as the user layer
+// C: the installers in sample repos (Python + Node + Go). C0-C10 and C13 test the lean repo set (-Lean) against the temp HOME user layer;
+// C1.1 tests the default, which places every part in the repo and nothing in HOME.
 const A = mkRepo('A', scenarioA); const B = mkRepo('B', scenarioB, untrackedB); const sA = porc(A); const sB = porc(B);
 const env = { DEV_TOOLKIT_HOME: GH };
-const map = { '': ['add', 'repo'], '-Gate': ['add', 'repo', 'gate'], '-Uninstall': ['remove', 'all'], '-DryRun': ['add', 'repo', '--dry-run'] };
-const insA = (...x) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', A, ...x], env) : drop([...map[x[0] || ''], '--repo', A], env));
+const dropArgs = (x) => (x.includes('-Uninstall') ? ['remove', 'all'] : [...(x.includes('-Lean') ? ['add', 'repo'] : ['add', 'all']), ...(x.includes('-Gate') ? ['gate'] : []), ...(x.includes('-DryRun') ? ['--dry-run'] : [])]);
+const insA = (...x) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', A, ...x], env) : drop([...dropArgs(x), '--repo', A], env));
 const insB = (...x) => (BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(B), ...x], { env }) : null);
-const hA0 = treeHash(A); const dr = insA('-DryRun');
-ok('C0', 'install -DryRun writes nothing', dr.code === 0 && treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')), tail(dr));
+const hA0 = treeHash(A); const dr = insA('-Lean', '-DryRun');
+ok('C0', 'install -Lean -DryRun writes nothing', dr.code === 0 && treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')), tail(dr));
 if (WIN) {
   const pristine = () => treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json'));
-  const wi = insA('-WhatIf'); ok('C0.1', 'install.ps1 -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
+  const wi = insA('-Lean', '-WhatIf'); ok('C0.1', 'install.ps1 -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
   const ty = insA('-Unistall'); ok('C0.2', 'install.ps1 rejects a misspelled flag (-Unistall), writes nothing', ty.code !== 0 && pristine(), tail(ty));
 }
-const a1 = insA(); ok('C1', `${WIN ? 'install.ps1 -Target <A>' : 'dropin add repo --repo <A>'} exits 0`, a1.code === 0, tail(a1));
-const b1 = insB(); if (!b1) res('C2', 'install.sh --target <B> exits 0', 'WARN', 'Git Bash not found: skipped'); else ok('C2', 'install.sh --target <B> (Git Bash) exits 0', b1.code === 0, tail(b1));
+const Dd = mkRepo('D', scenarioA); const sD = porc(Dd); const hGH = treeHash(GH); const noUser = path.join(TMP, 'no-user-home'); fs.mkdirSync(noUser);
+const inst = (dir, e, full) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', dir, ...(full ? ['-Full'] : [])], e)
+  : BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(dir), ...(full ? ['--full'] : [])], { env: e }) : drop(['add', full ? 'all' : 'default', '--repo', dir], e));
+const isFull = (d) => readIf(path.join(d, 'CLAUDE.local.md')).includes('<!-- dev-toolkit:begin -->') && ['hooks/tk/guard.mjs', 'skills/check/SKILL.md', 'skills/parallel/scripts/wt-new', 'agents/reviewer.md', 'rules/tk-python.md'].every((f) => exists(path.join(d, '.claude', f)));
+const d1 = inst(Dd, { DEV_TOOLKIT_HOME: noUser, HOME: noUser, USERPROFILE: noUser }); const dFull = isFull(Dd); const d2 = drop(['remove', 'all', '--repo', Dd], env);
+ok('C1.1', 'default install without a user layer: every part in the repo (rules, guard, skills, agents); HOME untouched; removal clean', d1.code === 0 && dFull && porc(Dd) === sD && !walk(noUser).length && d2.code === 0 && !exists(path.join(Dd, '.claude')) && porc(Dd) === sD, `${tail(d1, 1)}; full ${dFull}; HOME files ${walk(noUser).join(', ')}`);
+const d3 = inst(Dd, env); const dLean = !isFull(Dd) && !exists(path.join(Dd, '.claude/hooks/tk/guard.mjs')) && exists(path.join(Dd, '.claude/rules/tk-python.md')); drop(['remove', 'all', '--repo', Dd], env);
+const d4 = inst(Dd, env, true); const dFull2 = isFull(Dd); const d5 = drop(['remove', 'all', '--repo', Dd], env);
+ok('C1.2', 'with a user layer present: the default adds only what it lacks (no second guard or house rules) and says so; -Full places every part; HOME unchanged', d3.code === 0 && dLean && /user layer found/.test(d3.out) && d4.code === 0 && dFull2 && d5.code === 0 && porc(Dd) === sD && treeHash(GH) === hGH, `${tail(d3, 1)}; lean ${dLean}; full ${dFull2}`);
+const a1 = insA('-Lean'); ok('C1', `${WIN ? 'install.ps1 -Lean -Target <A>' : 'dropin add repo --repo <A>'} exits 0`, a1.code === 0, tail(a1));
+const b1 = insB('--lean'); if (!b1) res('C2', 'install.sh --lean --target <B> exits 0', 'WARN', 'Git Bash not found: skipped'); else ok('C2', 'install.sh --lean --target <B> (Git Bash) exits 0', b1.code === 0, tail(b1));
 const la = readIf(path.join(A, 'CLAUDE.local.md')); const lb = readIf(path.join(B, 'CLAUDE.local.md'));
 ok('C3', "A's CLAUDE.local.md lists uv run --frozen pytest, npm test, go test ./...", expected.A.test.every((c) => la.includes(`\`${c}\``)), la.slice(0, 200));
 ok('C4', "B's CLAUDE.local.md: make test first, @AGENTS.md", (/\| test \| `([^`]+)`/.exec(lb) || [])[1] === expected.B.testFirst && lb.includes('@AGENTS.md'), lb.slice(0, 200));
@@ -209,18 +228,20 @@ const allows = (d, c) => (allowOf(d) || []).some((r) => { const m = /^Bash\((.+)
 ok('C5', 'settings.local.json parses and allows the detected test commands', allowOf(A) && allowOf(B) && expected.A.test.every((c) => allows(A, c)) && allows(B, expected.B.testFirst), JSON.stringify(allowOf(A)));
 ok('C6', "B's tracked CLAUDE.md and .claude/settings.json are byte-identical", readIf(path.join(B, 'CLAUDE.md')) === scenarioB['CLAUDE.md'] && readIf(path.join(B, '.claude/settings.json')) === scenarioB['.claude/settings.json'], 'tracked file changed');
 ok('C7', 'git status --porcelain unchanged in A and B; the user layer is not duplicated into the repo', porc(A) === sA && porc(B) === sB && !la.includes('<!-- dev-toolkit:begin -->') && !exists(path.join(A, '.claude/hooks/tk/guard.mjs')), `${porc(A)} | ${porc(B)} | rules block: ${la.includes('<!-- dev-toolkit:begin -->')}`);
-const tA = treeHash(A); const tB = treeHash(B); const a2 = insA(); const b2 = insB();
+const tA = treeHash(A); const tB = treeHash(B); const a2 = insA('-Lean'); const b2 = insB('--lean');
 const once = (d) => (readIf(gitPath(d, 'info/exclude')).match(/# >>> dev-toolkit/g) || []).length === 1;
 ok('C8', 'second run: identical file hashes; exclude block exactly once', a2.code === 0 && treeHash(A) === tA && (!b2 || (b2.code === 0 && treeHash(B) === tB)) && once(A) && once(B), `${tail(a2, 1)} ${b2 ? tail(b2, 1) : ''}`);
 ok('C9', "B's pre-existing CLAUDE.local.md text is preserved", lb.endsWith(`\n${untrackedB['CLAUDE.local.md']}`), JSON.stringify(lb.slice(-40)));
-const ag = insA('-Gate'); let ls = {}; try { ls = JSON.parse(read(path.join(A, '.claude/settings.local.json'))); } catch { /* checked below */ }
+const ag = insA('-Lean', '-Gate'); let ls = {}; try { ls = JSON.parse(read(path.join(A, '.claude/settings.local.json'))); } catch { /* checked below */ }
 const gateCmds = settingsCmds(ls).filter(([, c]) => /gate\.mjs/.test(c));
 ok('C10', '-Gate adds the 4 gate entries (scripts exist)', ag.code === 0 && gateCmds.length === 4 && gateCmds.every(([, c]) => exists(scriptOf(c) || '')) && porc(A) === sA, `${tail(ag, 1)}; gate entries ${gateCmds.length}`);
 const P = mkRepo('P', scenarioA); const sP = porc(P); const empty = path.join(TMP, 'empty-home'); fs.mkdirSync(empty);
 const pr = drop(['add', 'all', '--repo', P], { DEV_TOOLKIT_HOME: empty }); let ps = {}; try { ps = JSON.parse(read(path.join(P, '.claude/settings.local.json'))); } catch { /* checked below */ }
 const pcmd = settingsCmds(ps).find(([ev, c]) => ev === 'PreToolUse' && /guard\.mjs/.test(c))?.[1] || '';
-const pdeny = pcmd && BASH ? decisionOf(sh(BASH, ['-c', pcmd], { input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push --force' } }), env: henv }).out).d : 'skipped';
-ok('C11', 'add all (portable) without a user layer registers the guard locally', pr.code === 0 && fwd(scriptOf(pcmd) || '').startsWith(fwd(P)) && exists(path.join(P, '.claude/skills/check/SKILL.md')) && readIf(path.join(P, 'CLAUDE.local.md')).includes('<!-- dev-toolkit:begin -->') && ['deny', 'skipped'].includes(pdeny) && porc(P) === sP, `${tail(pr, 1)}; guard ${pcmd}; decision ${pdeny}`);
+const logHome = path.join(TMP, 'log-home'); fs.mkdirSync(logHome);
+const pdeny = pcmd && BASH ? decisionOf(sh(BASH, ['-c', pcmd], { input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push --force' } }), env: { HOME: logHome, USERPROFILE: logHome } }).out).d : 'skipped';
+const repoLog = pdeny === 'skipped' || (exists(path.join(gitPath(P, 'dev-toolkit-logs'), 'guard.jsonl')) && !walk(logHome).length);
+ok('C11', 'add all (portable) without a user layer registers the guard locally; it logs in the repo git dir, never under HOME', pr.code === 0 && fwd(scriptOf(pcmd) || '').startsWith(fwd(P)) && exists(path.join(P, '.claude/skills/check/SKILL.md')) && readIf(path.join(P, 'CLAUDE.local.md')).includes('<!-- dev-toolkit:begin -->') && ['deny', 'skipped'].includes(pdeny) && repoLog && porc(P) === sP, `${tail(pr, 1)}; guard ${pcmd}; decision ${pdeny}; repo log ${repoLog}; HOME files ${walk(logHome).join(', ')}`);
 const R = mkRepo('R', { 'README.md': 'x\n' }); fs.cpSync(TK, path.join(R, 'tk'), { recursive: true, filter: (s) => !/[\\/]\.git$/.test(s) });
 const rr = sh('node', [path.join(R, 'tk/dropin.mjs'), 'add', 'repo', '--repo', R, '--dry-run'], { env }); ok('C12', 'installing into a repo that contains the toolkit exits 2', rr.code === 2, tail(rr));
 const ua = insA('-Uninstall'); const ub = insB('--uninstall'); const up = drop(['remove', 'all', '--repo', P], { DEV_TOOLKIT_HOME: empty });
@@ -255,6 +276,35 @@ ok('G5', 'add/remove one skill --user: file placed, no settings file created, ho
 const g13 = drop(['add', 'nonsense', '--repo', Gr], genv); const g14 = drop(['add', 'check', '--repo', Gr, '--bogus'], genv);
 ok('G6', 'unknown part and unknown flag exit 2 and write nothing', g13.code === 2 && g14.code === 2 && treeHash(Gr) === hG0, `${tail(g13, 1)} | ${tail(g14, 1)}`);
 
+// H: the parallel scripts as dropin places them, in a repo with a remote, through Git Bash, with HOME pointed at an empty dir
+if (!BASH) res('H', 'parallel scripts', 'WARN', 'Git Bash not found: skipped');
+else {
+  const PM = mkRepo('par', scenarioA); const O = path.join(TMP, 'par-origin.git'); const hHome = path.join(TMP, 'par-home'); fs.mkdirSync(hHome);
+  sh('git', ['init', '-q', '--bare', O]); sh('git', ['remote', 'add', 'origin', O], { cwd: PM }); sh('git', ['push', '-q', 'origin', 'HEAD:main'], { cwd: PM });
+  sh('git', ['fetch', '-q', 'origin'], { cwd: PM }); sh('git', ['remote', 'set-head', 'origin', 'main'], { cwd: PM });
+  const penv = { HOME: hHome, USERPROFILE: hHome, DEV_TOOLKIT_HOME: hHome }; const sPM = porc(PM); const W1 = `${PM}.wt/1-a`; const W2 = `${PM}.wt/2-b`;
+  const X = fwd(path.join(PM, '.claude/skills/parallel/scripts')); const run = (c, e = {}) => sh(BASH, ['-c', c], { cwd: PM, env: { ...penv, ...e } });
+  const pin = drop(['add', 'parallel', 'check', '--repo', PM], penv); const h1 = run(`"${X}/wt-new" 1:a 2:b`);
+  ok('H1', "wt-new: a worktree and branch per issue, each with the main checkout's Claude config; git status clean in all; HOME untouched", pin.code === 0 && h1.code === 0 && exists(path.join(W1, '.claude/skills/check/SKILL.md')) && exists(W2) && porc(PM) === sPM && !porc(W1) && !walk(hHome).length, `${tail(pin, 1)} | ${tail(h1, 2)}`);
+  const own = path.join(W1, '.claude/skills/check/SKILL.md'); fs.appendFileSync(own, '\nworktree-only note\n'); // a re-run must not overwrite the worktree's own copy
+  const h2 = run(`"${X}/wt-new" 7`); const h3 = run(`"${X}/wt-new" 1:a`);
+  ok('H2', "wt-new: a bad spec exits 2 before anything is made; a re-run reuses the worktree and keeps its edited files", h2.code === 2 && h3.code === 0 && /reusing/.test(h3.err) && !exists(`${PM}.wt/7-7`) && readIf(own).includes('worktree-only note'), `${tail(h2, 1)} | ${tail(h3, 1)}`);
+  const h4 = run(`"${X}/wt-conflicts"`);
+  for (const [w, txt] of [[W1, 'one'], [W2, 'two']]) { fs.writeFileSync(path.join(w, 'README.md'), `${txt}\n`); sh('git', [...G, 'commit', '-q', '-a', '-m', txt], { cwd: w }); }
+  const h5 = run(`"${X}/wt-conflicts"`);
+  ok('H3', 'wt-conflicts: exit 0 when nothing overlaps; exit 1 naming the file once two branches commit the same line', h4.code === 0 && h5.code === 1 && /CONFLICT.*README\.md/.test(h5.out), `${tail(h4, 1)} | ${tail(h5, 2)}`);
+  const h6 = run(`"${X}/wtc" 2`, { WTC_CLAUDE: 'echo claude' }); const h7 = run(`"${X}/wtc" 9`);
+  ok('H4', 'wtc: a named plan-mode session in the worktree with a per-session status line and bell; an unknown issue exits 1', h6.code === 0 && /-n #2-b --permission-mode plan --settings .*statusline\.mjs.*terminal_bell/.test(h6.out) && h7.code === 1, `${tail(h6, 1)} | ${tail(h7, 1)}`);
+  const h8 = run(`"${X}/wt-workspace"`); let ws = null; try { ws = JSON.parse(read(`${PM}.code-workspace`)); } catch { /* checked below */ } const h9 = run(`"${X}/wt-workspace"`);
+  ok('H5', 'wt-workspace: a valid workspace file beside the clone (main + worktrees, scripts on the terminal PATH); a re-run without --force exits 2', h8.code === 0 && ws?.folders?.length === 2 && /parallel[\\/]scripts/.test(ws?.settings?.['terminal.integrated.env.windows']?.PATH || '') && h9.code === 2, `${tail(h8, 1)} | ${tail(h9, 1)}`);
+  const sl = sh('node', [path.join(PM, '.claude/skills/parallel/scripts/statusline.mjs')], { input: JSON.stringify({ workspace: { current_dir: W1 } }) });
+  ok('H6', 'statusline.mjs prints "<folder> | <branch>"; HOME still untouched', sl.out === '1-a | fix/1-a' && !walk(hHome).length, `${JSON.stringify(sl.out)}; HOME files ${walk(hHome).join(', ')}`);
+  const NO = mkRepo('noremote', scenarioA); drop(['add', 'parallel', '--repo', NO], penv); const XN = fwd(path.join(NO, '.claude/skills/parallel/scripts'));
+  const h10 = sh(BASH, ['-c', `"${XN}/wt-new" 1:x`], { cwd: NO, env: penv }); const h11 = sh(BASH, ['-c', `"${XN}/wt-conflicts"`], { cwd: NO, env: penv });
+  ok('H8', 'no origin remote (an archive or a fresh git init): wt-new branches from the local branch; wt-conflicts checks against it', h10.code === 0 && exists(`${NO}.wt/1-x`) && h11.code === 0, `${tail(h10, 2)} | ${tail(h11, 1)}`);
+  if (!WIN) ok('H7', 'placed shell scripts are executable', ['wt-new', 'wtc', 'wt-board', 'wt-conflicts', 'wt-workspace'].every((s) => (fs.statSync(path.join(PM, '.claude/skills/parallel/scripts', s)).mode & 0o111) !== 0), 'mode lacks +x');
+}
+
 // P: this terminal's PATH vs the saved PATH (a terminal opened before bootstrap cannot start tools that claude will need)
 let stale = [];
 if (WIN) {
@@ -280,29 +330,31 @@ else {
 const RC = path.join(os.homedir(), '.claude'); let real = null; try { real = JSON.parse(read(path.join(RC, 'settings.json'))); } catch { /* reported below */ }
 const rcmd = settingsCmds(real).find(([ev, c]) => ev === 'PreToolUse' && /[\\/]\.claude[\\/]hooks[\\/]guard\.mjs/.test(c))?.[1];
 const denyIn = JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'echo toolkit-selftest-deny' }, session_id: 'selftest', cwd: TMP });
-if (!rcmd) res('E2', 'real ~/.claude has the user layer', 'WARN', real ? 'guard not registered: run install-global.ps1' : '~/.claude/settings.json missing or invalid');
+if (!rcmd && exists(path.join(RC, 'settings.json')) && !real) res('E2', 'real ~/.claude/settings.json parses', 'WARN', 'it exists but is not valid JSON: every claude session reads it; fix or restore it');
+else if (!rcmd) res('E2', 'real ~/.claude user layer (optional)', 'SKIP', 'not installed; repo installs need none');
 else {
   ok('E2.1', 'real settings.json parses; guard script exists', exists(scriptOf(rcmd) || ''), rcmd);
   if (BASH) ok('E2.2', 'installed guard command denies via Git Bash', decisionOf(sh(BASH, ['-c', rcmd], { input: denyIn, env: henv }).out).d === 'deny', rcmd);
   if (WIN) ok('E2.3', 'installed guard command denies via PowerShell', decisionOf(psCmd(`'${denyIn}' | ${rcmd}`, { env: henv }).out).d === 'deny', rcmd);
   const pairs = [...walk(SK).map((f) => [path.join(SK, f), path.join(RC, 'skills', f)]), ...agents.map((a) => [path.join(AG, `${a}.md`), path.join(RC, 'agents', `${a}.md`)]), ...hookSrc.map(([, f, s]) => [s, path.join(RC, 'hooks', f)]).filter(([, d]) => exists(d) || !d.endsWith('gate.mjs'))];
   const drift = pairs.filter(([s, d]) => lf(read(s)) !== readIf(d)).map(([, d]) => fwd(path.relative(RC, d)));
-  ok('E2.4', 'installed files match the toolkit source', !drift.length, `drift: re-run install-global (${drift.join(', ')})`, 'WARN');
+  ok('E2.4', 'opt-in user layer files match the toolkit source', !drift.length, `drift: re-run install-global.ps1, or remove the user layer (${drift.join(', ')})`, 'WARN');
 }
 const cv = sh('claude --version', null); ok('E2.5', 'claude --version', cv.code === 0, tail(cv, 1), 'WARN');
-const pl = sh('claude plugin list', null, { timeout: 60000 }).out; ok('E2.6', 'plugins commit-commands and pr-review-toolkit installed', /commit-commands@/.test(pl) && /pr-review-toolkit@/.test(pl), 'run install-global.ps1 (plugins)', 'WARN');
+const pl = sh('claude plugin list', null, { timeout: 60000 }).out; ok('E2.6', 'optional plugins commit-commands and pr-review-toolkit visible here', /commit-commands@/.test(pl) && /pr-review-toolkit@/.test(pl), 'optional; per repo: claude plugin install <name>@anthropic-plugin-directory --scope local', 'SKIP');
 
 // F: live headless probes (costs a few cents)
 if (!LIVE) res('F', 'live headless Claude probes', 'SKIP', 'pass -Live');
-else if (!rcmd || cv.code !== 0) res('F', 'live headless Claude probes', 'FAIL', 'needs claude on PATH and install-global.ps1 run first');
+else if (cv.code !== 0) res('F', 'live headless Claude probes', 'FAIL', 'needs claude on PATH');
 else {
-  const L = mkRepo('live', scenarioA); const logs = [...new Set([os.homedir(), process.env.HOME].filter(Boolean).map((h) => path.join(h, '.claude/logs/guard.jsonl')))];
+  const L = mkRepo('live', scenarioA); // the guard is the repo's own (logs in its git dir) or, with the opt-in user layer, the global one
+  const logs = [...new Set([os.homedir(), process.env.HOME].filter(Boolean).map((h) => path.join(h, '.claude/logs/guard.jsonl'))), path.join(gitPath(L, 'dev-toolkit-logs'), 'guard.jsonl')];
   const marks = () => logs.reduce((n, p) => n + (readIf(p).match(/selftest-marker/g) || []).length, 0);
   const q = (a) => a.map((x) => (/[\s"()*,&|<>^]/.test(x) ? `"${x}"` : x)).join(' ');
   const live = (a) => { const r = sh(`claude ${q(a)}`, null, { cwd: L, timeout: 180000, env: { DEV_TOOLKIT_HOME: '' } }); let j = {}; try { j = JSON.parse(r.out); } catch { /* not JSON */ } return { r, j }; };
   drop(['add', 'repo', '--repo', L], { DEV_TOOLKIT_HOME: '' }); const m0 = marks();
   const f1 = live(['-p', 'Use your shell tool to run exactly: echo toolkit-selftest-deny. Then reply DONE.', '--max-turns', '3', '--output-format', 'json']);
-  ok('F1', 'live: the global guard denied the marker command', marks() > m0, `${tail(f1.r, 2)}`);
+  ok('F1', 'live: the guard denied the marker command', marks() > m0, `${tail(f1.r, 2)}`);
   drop(['add', 'gate', '--repo', L], { DEV_TOOLKIT_HOME: '' });
   const a2 = ['-p', "Append the comment '# probe' to src/calc.py, then finish. Do not run tests.", '--max-turns', '8', '--output-format', 'json', '--allowedTools', 'Read,Edit,Bash(uv run pytest:*),Bash(npm test:*),Bash(go test:*)'];
   let f2 = live([...a2.slice(0, 2), '--model', 'haiku', ...a2.slice(2)]); if (/model/i.test(f2.r.err) && !f2.j.session_id) f2 = live(a2);

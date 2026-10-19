@@ -144,20 +144,29 @@ From docs/decisions.md and git log since [Monday], draft the PR body with /pr-br
 
 `~/claude-toolkit` is where you cloned it ([Quickstart](../Quickstart.md), step 1).
 
-**Install a set for every repo on this machine.** Run in: Terminal, any folder. Sets are `takehome`, `live`, `safety` and `all`.
+Everything below writes into the one project you run it in; nothing goes into `~/.claude` or any global settings.
+
+**Every part in this project.** Run in: Terminal, in your project's folder.
 ```bash
-node ~/claude-toolkit/dropin.mjs add takehome --user
+bash ~/claude-toolkit/install.sh
 ```
 
-**Install one or two parts for every repo.** Run in: Terminal, any folder.
+**A set, or one or two parts.** Run in: Terminal, in your project's folder. Sets are `takehome`, `live`, `safety`, `repo` and `all`.
 ```bash
-node ~/claude-toolkit/dropin.mjs add [part] [another part] --user
-```
-
-**One project only, nothing in `~/.claude`.** Run in: Terminal, in your project's folder.
-```bash
+node ~/claude-toolkit/dropin.mjs add repo takehome --repo .
 node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .
 ```
+
+**Several issues at once.** Run in: Claude Code first, then a terminal in the project's folder.
+```
+/parallel plan [12 14 15 17]
+```
+```bash
+.claude/skills/parallel/scripts/wt-workspace                    # once: open the printed .code-workspace with code
+wt-new 12:authz 14:paging 15:lost-update 17:errors             # in that workspace's terminals the scripts work by name
+wtc 12                                                          # one per pane, in launch order; wtc 0 is the main checkout
+```
+Then, in each issue's session: `/scope #12: run gh issue view 12 and restate it in one sentence. Goal: [my words]. Done: [the failing test] and the repo's checks.` Before merging, in the main checkout's session: `/parallel check`.
 
 **Prove the wiring.** Run in: Terminal, any folder.
 ```bash
@@ -170,9 +179,9 @@ cd ~/claude-toolkit
 node --test "setup/tests/*.test.mjs"
 ```
 
-**Take it all out of `~/.claude`.** Run in: Terminal, any folder.
+**Take it all out of this project.** Run in: Terminal, in your project's folder. Worktrees from `wt-new` go first, with `git worktree remove [path]` (their hooks point at this checkout), then:
 ```bash
-node ~/claude-toolkit/dropin.mjs remove all --user
+bash ~/claude-toolkit/install.sh --uninstall
 ```
 
 **Dry-run anything first.** Add ` --dry-run` to the end of any `add` or `remove` command; it prints the plan and writes nothing.

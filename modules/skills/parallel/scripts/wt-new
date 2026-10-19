@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# wt-new 12:authz 14:paging ...  one worktree + one branch per issue, from the remote's default branch (no remote: this branch).
+# Worktrees go to <main>.wt/<N>-<slug>, beside the clone, so nothing lands inside the repo. Each gets a copy of the main
+# checkout's git-ignored Claude config (.claude/, CLAUDE.local.md), so every session has the same parts; the shared
+# info/exclude keeps them out of git status. A file the worktree already has is never overwritten. Re-running a spec reuses
+# its worktree (and re-runs setup) or reattaches its branch.
+# WT_KIND=feat for feature branches; WT_SETUP="uv sync --frozen" (or "npm ci") installs deps in parallel;
+# WT_BASE=fix/12-authz stacks on another issue's branch. Only commits carry over: commit there first.
+set -euo pipefail
+[ $# -gt 0 ] || { echo "usage: wt-new <N>:<slug> [<N>:<slug> ...]" >&2; exit 2; }
+for spec in "$@"; do
+  [[ $spec =~ ^[0-9]+:[a-z0-9][a-z0-9-]*$ ]] || { echo "bad spec '$spec': want <issue-number>:<slug>, e.g. 12:authz" >&2; exit 2; }
+done
+main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
+to=$(command -v timeout >/dev/null 2>&1 && echo "timeout 60" || true)
+if git -C "$main" remote get-url origin >/dev/null 2>&1; then
+  $to git -C "$main" fetch -q origin || echo "fetch from origin FAILED: branching from the local copy of its refs" >&2
+fi
+base=${WT_BASE:-$(git -C "$main" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+  || { git -C "$main" rev-parse -q --verify origin/main >/dev/null && echo origin/main; } || git -C "$main" branch --show-current)}
+[ -n "$base" ] || { echo "no base branch found: set WT_BASE=<branch>" >&2; exit 2; }
+copy_local() { # the main checkout's git-ignored Claude config into one worktree, skipping files it has; prints the count
+  local n=0 bad=0 f
+  while IFS= read -r -d '' f; do
+    [ -e "$1/$f" ] && continue
+    if mkdir -p "$1/$(dirname "$f")" && cp -p "$main/$f" "$1/$f"; then n=$((n + 1)); else echo "could not copy $f" >&2; bad=1; fi
+  done < <(git -C "$main" ls-files -z --others --ignored --exclude-standard -- .claude CLAUDE.local.md ':!.claude/worktrees')
+  echo "$n"; return $bad
+}
+dirs=() fail=0
+for spec in "$@"; do
+  n=${spec%%:*} slug=${spec#*:}
+  dir="$main.wt/$n-$slug" branch="${WT_KIND:-fix}/$n-$slug"
+  if [ -d "$dir" ]; then
+    echo "reusing $dir" >&2
+  elif git -C "$main" show-ref --verify -q "refs/heads/$branch"; then
+    echo "reattaching existing branch $branch" >&2
+    git -C "$main" worktree add -q "$dir" "$branch" || { echo "worktree FAILED for $spec" >&2; fail=1; continue; }
+  elif ! git -C "$main" worktree add -q --no-track -b "$branch" "$dir" "$base"; then
+    echo "worktree FAILED for $spec" >&2; fail=1; continue
+  fi
+  copied=$(copy_local "$dir") || { echo "copying Claude config FAILED for $spec" >&2; fail=1; }
+  echo "$branch (from $base): ${copied:-0} local Claude config file(s) copied from the main checkout" >&2
+  dirs+=("$dir")
+done
+if [ -n "${WT_SETUP:-}" ] && [ ${#dirs[@]} -gt 0 ]; then
+  pids=()
+  for d in "${dirs[@]}"; do (cd "$d" && eval "$WT_SETUP") >"$d.setup.log" 2>&1 & pids+=($!); done
+  for i in "${!pids[@]}"; do
+    wait "${pids[i]}" || { echo "setup FAILED in ${dirs[i]}: see ${dirs[i]}.setup.log" >&2; fail=1; }
+  done
+fi
+git -C "$main" worktree list
+exit $fail

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# wt-workspace [--force]  write <repo>.code-workspace beside the clone: the main checkout and the <repo>.wt worktrees folder,
+# terminals in the editor area (Git Bash on Windows, since the scripts are bash), the visual bell held 30 s, font 15, worktrees
+# listed in Source Control, and this scripts folder on the PATH of that workspace's terminals only (applies once the workspace
+# is trusted). Nothing global changes.
+# Open it with: code <path printed>. Exit 2 if the file exists (--force replaces it).
+set -euo pipefail
+main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
+name=$(basename "$main") out="$main.code-workspace"
+[ "${1:-}" = --force ] || [ ! -e "$out" ] || { echo "$out exists; wt-workspace --force replaces it" >&2; exit 2; }
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+win=$(cygpath -w "$here" 2>/dev/null || echo "$here")
+j() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+mkdir -p "$main.wt"
+cat > "$out" <<EOF
+{
+  "folders": [
+    { "path": "$(j "$name")", "name": "main" },
+    { "path": "$(j "$name").wt", "name": "worktrees" }
+  ],
+  "settings": {
+    "terminal.integrated.defaultLocation": "editor",
+    "terminal.integrated.fontSize": 15,
+    "editor.fontSize": 15,
+    "terminal.integrated.enableVisualBell": true,
+    "terminal.integrated.bellDuration": 30000,
+    "terminal.integrated.tabs.allowAgentCliTitle": true,
+    "workbench.editor.doubleClickTabToToggleEditorGroupSizes": "maximize",
+    "scm.alwaysShowRepositories": true,
+    "git.detectWorktrees": true,
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "terminal.integrated.env.windows": { "PATH": "$(j "$win");\${env:PATH}" },
+    "terminal.integrated.env.linux": { "PATH": "$(j "$here"):\${env:PATH}" },
+    "terminal.integrated.env.osx": { "PATH": "$(j "$here"):\${env:PATH}" }
+  }
+}
+EOF
+echo "$out"

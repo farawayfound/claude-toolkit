@@ -11,7 +11,7 @@ The skills and agents named here are optional parts; when one is missing, do tha
 
 ## Parallel work
 - Independent subagents launch in ONE message; keep working while they run. Every brief is self-contained: goal, paths, constraints, done-when, return format (at most 15 lines, file:line evidence).
-- Read-only work fans out freely. Parallel writers only on disjoint files; otherwise a worktree (`git worktree add`, then `bash ~/.claude/dev-toolkit/install.sh` inside it).
+- Read-only work fans out freely. Parallel writers only on disjoint files; otherwise a worktree per task. Several issues at once: /parallel plans the overlaps and launch order, its `wt-new` script makes one worktree and branch per issue with this checkout's Claude config, and /parallel check proves the branches don't conflict.
 - Never edit source while its failing test is being written: RED is observed before the fix. A subagent's report is a claim until you re-run its decisive command.
 
 ## Code

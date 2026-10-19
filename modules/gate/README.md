@@ -6,6 +6,6 @@ A verification gate on four events (SessionStart, PostToolUse and PostToolUseFai
 
 Needs `facts` (`detect.mjs`, for the repo's test command); `dropin.mjs` brings it along.
 
-- Into a checkout: `node ~/claude-toolkit/dropin.mjs add gate --repo .` (or `bash ~/claude-toolkit/install.sh --gate`). Never part of the user layer by default; `add gate --user` registers it everywhere on purpose.
+- Into a checkout: `node ~/claude-toolkit/dropin.mjs add gate --repo .` (or `bash ~/claude-toolkit/install.sh --gate`). Never part of a set; it is placed only when named.
 - Off for one repo: `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"` or start the session with `TK_GATE=off claude`. Out: `node ~/claude-toolkit/dropin.mjs remove gate --repo .`.
 - When it nags: run the test command as the last step of the command and show the output, or write `not verified: [reason]`.

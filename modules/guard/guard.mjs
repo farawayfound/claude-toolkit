@@ -4,6 +4,15 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// A repo install (.claude/hooks/tk/) logs in that repo's git dir, so nothing is written outside the checkout; the user layer logs to ~/.claude/logs.
+function logDir() {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  if (path.basename(here) !== 'tk') return path.join(process.env.HOME || os.homedir(), '.claude', 'logs');
+  const dotgit = path.resolve(here, '../../../.git'); // a linked worktree or submodule has a .git file pointing at its git dir
+  return path.join(fs.statSync(dotgit).isFile() ? path.resolve(path.dirname(dotgit), /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(dotgit, 'utf8'))[1].trim()) : dotgit, 'dev-toolkit-logs');
+}
 
 const SEARCH = /^\s*(?:rg|grep|egrep|fgrep|git\s+(?:-C\s+\S+\s+)*(?:log|grep))\b/; // read-only searches; command rules outside WHOLE skip these segments
 const SEGMENTS = /\|\||&&|[;|\n]/;
@@ -40,7 +49,7 @@ try {
     const hookSpecificOutput = { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason };
     process.stdout.write(JSON.stringify({ hookSpecificOutput }));
     try {
-      const dir = path.join(process.env.HOME || os.homedir(), '.claude', 'logs');
+      const dir = logDir();
       fs.mkdirSync(dir, { recursive: true });
       const rec = { ts: new Date().toISOString(), session_id: input.session_id, cwd: input.cwd, tool, decision, rule, subject: redact(subject) };
       fs.appendFileSync(path.join(dir, 'guard.jsonl'), JSON.stringify(rec) + '\n');

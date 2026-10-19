@@ -29,7 +29,8 @@ Run in: Terminal, any folder; the last line starts Claude Code.
 
 ```bash
 cd ~/dev && gh repo clone [owner]/[repo] && cd [repo]      # archive: unzip; git init -q && git add -A && git commit -qm baseline
-git switch -c fix/[slug]                                    # before the first edit
+bash ~/claude-toolkit/install.sh                            # every part, this checkout only; git status stays the same
+git switch -c fix/[slug]                                    # one issue; several: see §4, one worktree per issue
 claude                                                      # accept trust, then type /recon [topic] at the Claude Code prompt
 ```
 Permission mode: default for recon; **Shift+Tab to acceptEdits** after the plan is approved; auto only if prompts stack up (the guard's denies still apply; push and PR still ask). Share one window.
@@ -63,13 +64,14 @@ It stops with "Approve this plan, or tell me what to change." Say what to cut. T
 |---|---|---|
 | Fan-out reads | Several Explore or verifier agents in **one** message, each with a 15-line return format | Unknown codebase; any "where does X happen?" |
 | Tests alongside the fix | test-writer writes RED while you read the edit site and state the fix | Every change; never edit source before RED is shown |
-| Isolated tracks | A second terminal: `claude -w [name]` (worktree under `.claude/worktrees/`) | Disjoint files only; integrate with `git -C [wt] diff` then `git apply` |
+| One issue per worktree | `/parallel plan [issues]`; in a terminal `wt-new [N]:[slug] ...`, then `wtc [N]` in one pane per issue (`wt-workspace` once makes the VS Code workspace whose terminals have the scripts on PATH) | Several issues: each window passes the same gates; commit before review or stacking; `/parallel check` (`wt-conflicts`) before the PRs |
+| Isolated track, one-off | A second terminal: `claude -w [name]` (worktree under `.claude/worktrees/`, branch `worktree-[name]`) | Disjoint files only; integrate with `git -C [wt] diff` then `git apply` |
 | Background checks | `verifier` agent in the background; `/tasks` shows and stops it | After each GREEN, while you move on |
 | Review passes | `/break`, `/gate`, `/code-review high`, `/simplify` | Before the PR |
 | Side question | `/btw [question]` | Answer the room without derailing the main thread |
 | Side investigation | Second terminal, same repo, read-only: "list every other write path to [system] not covered by [fn]; file:line" | The found-while-here list |
 
-Rules that keep parallel work honest: every brief is self-contained; parallel writers only on disjoint files; a subagent's report is a claim until you re-run its decisive command; one `/compact` between phases if `/context` is heavy.
+Rules that keep parallel work honest: every brief is self-contained; parallel writers only on disjoint files or in separate worktrees; a subagent's report is a claim until you re-run its decisive command; one `/compact` between phases if `/context` is heavy. With a window per issue, the agents work in parallel and you review in series: launch the long important issue first and the smallest second, go to whichever window is at a gate, and stop launching when three wait on you.
 
 ## 5 · Prompt structure
 
@@ -88,14 +90,14 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 | Situation | Move |
 |---|---|
 | Guard blocked a legitimate command | "That's my local guard", then run it yourself in the terminal |
-| "hook error" on every call | `"disableAllHooks": true` in `~/.claude/settings.json`, restart; or `claude --safe-mode` |
+| "hook error" on every call | `"disableAllHooks": true` in `.claude/settings.local.json`, restart; or `claude --safe-mode` |
 | Prompts piling up | Shift+Tab to acceptEdits or auto; `/permissions` adds an allow rule |
 | Wrong edit, wrong direction | `/rewind` to the checkpoint before it; restate the constraint in one line |
 | Context long, looping | `/compact`; Esc, one-line restatement; `/context` to see why |
 | Agent stuck or runaway | `/tasks`, stop it; re-brief smaller; `/workflows` for `/gate` |
 | Tests need a DB or service | Ask; `docker compose up -d [svc]`; else `not verified: [reason]` |
 | Rate limit or slow model | `/model sonnet`; fewer agents; continue by hand, narrating |
-| Asked to drop my config | `node ~/.claude/dev-toolkit/dropin.mjs remove all --user`, restart `claude` (time it the day before) |
+| Asked to drop my config | Worktrees first (`git worktree remove [path]`), then `bash ~/claude-toolkit/install.sh --uninstall` in the repo, restart `claude` (time it the day before) |
 | Asked to use their seat | `/logout` then `/login`; say plainly that hooks and agents may differ there |
 | Five minutes stuck on environment | Ask for help, or switch to reading and planning aloud |
 
@@ -132,15 +134,15 @@ Access matrix for shape 1: owner allow · peer deny · manager of owner's team a
 
 ## 10 · Before the day
 
-**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/dropin.mjs add live --user`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same command with `--live` instead of `--quick` once · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/break [the feature]`, `/gate [main]`, `/pr-brief [main]`), then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
+**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same self-test with `--live` instead of `--quick` once, and in each repo you will use (the rehearsal copy included) `bash ~/claude-toolkit/install.sh` · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/break [the feature]`, `/gate [main]`, `/pr-brief [main]`), then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
 **T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
-**After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `remove all --user`; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
+**After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `git worktree remove` each worktree, then `bash ~/claude-toolkit/install.sh --uninstall` in the repo; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
 
 ## 11 · Advice
 
 - Spend the first ten minutes reading and asking. The room remembers the question that found the chokepoint longer than any code.
 - Narrate decisions, not output: accept or reject each proposal aloud with a reason ("no new dependency; use the existing helper").
-- Parallel is the point, but only three things in flight at once: tests, your fix, a background check. More is noise on a shared screen.
+- Parallel is the point, and your attention is the limit. In one window: tests, your fix, a background check. Across windows: one per independent issue, each at the same gates, and no more windows than PRs you can review.
 - Every claim gets its command. "Tests pass" means an exit code they saw.
 - When time slips, cut scope, not verification. A verified half with a written "not verified" list beats an unverified whole.
 - Leave with a measurement line and a follow-up list: that is what ownership looks like in 60 minutes.

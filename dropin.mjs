@@ -5,7 +5,8 @@
 //   node dropin.mjs remove <part ...|all>      [--repo DIR | --user] [--dry-run] [--home DIR]
 //   node dropin.mjs facts [DIR]                 prints the repo-facts block for CLAUDE.local.md
 // Parts: modules/index.json (`list` prints them). Groups: skills, agents, rules. Sets: repo = facts + rules + whatever ~/.claude lacks
-// (house rules, permissions, guard); all = every part (in --user mode: minus the per-repo rules and the opt-in hooks); safety, live and
+// (house rules, permissions, guard); default (install.sh) = all, or repo when an opt-in user layer exists;
+// all = every part (in --user mode: minus the per-repo rules and the opt-in hooks); safety, live and
 // takehome are the named sets in modules/sets.json. A part's `requires` come along (gate needs facts, verifier needs check, breaker needs break).
 // Repo mode never touches git: created paths go to .git/info/exclude and `git status` must read the same before and after. A file is only
 // updated or removed while its content is what this tool wrote (hash in the manifest). Settings are merged, backed up once, and subtracted again.
@@ -114,7 +115,8 @@ function placeFile(t, part, src, dest) { // update only files we own: on-disk ha
   const abs = path.join(t.base, dest), data = lf(fs.readFileSync(src, 'utf8')), cur = read(abs), prev = t.state.files[dest];
   if (t.tracked?.has(`.claude/${dest}`)) return warn(t, `.claude/${dest} is tracked by git; skipped`);
   if (cur !== null && cur !== data && !t.force && (!prev || sha(cur) !== prev.sha256)) { warn(t, `${dest} ${prev ? 'was modified after install' : 'exists with different content'}; kept${prev ? '' : ' (--force replaces it)'}`); return note(t, 'skipped', abs); }
-  writeText(t, abs, data); t.state.files[dest] = { sha256: sha(data), created: prev ? prev.created : cur === null, part };
+  writeText(t, abs, data); if (!t.dry && data.startsWith('#!')) fs.chmodSync(abs, 0o755); // scripts stay runnable on macOS and Linux
+  t.state.files[dest] = { sha256: sha(data), created: prev ? prev.created : cur === null, part };
 }
 function removeFile(t, dest) {
   const f = t.state.files[dest], abs = path.join(t.base, dest); delete t.state.files[dest]; const cur = read(abs);
@@ -179,6 +181,11 @@ export function resolve(names, t) { // explicit names, groups and sets, with eac
   for (const n of names) {
     if (n === 'all') for (const p of Object.keys(INDEX)) { if (!INDEX[p].optIn && (t.mode === 'repo' || INDEX[p].kind !== 'rule')) push(p); } // opt-in hooks (gate, trail) are named explicitly; rules are per-repo
     else if (n === 'repo') { if (t.mode !== 'repo') die(2, 'the repo set needs --repo'); push('facts'); partsOfKind('rule').forEach(push); if (!userHas(t, 'house-rules')) push('house-rules'); if (!userHas(t, 'guard')) { push('permissions'); push('guard'); } }
+    else if (n === 'default') { // what install.sh places: every part, unless an opt-in user layer already provides them (then only what it lacks, so nothing loads twice)
+      if (t.mode !== 'repo') die(2, 'the default set needs --repo');
+      const lean = userHas(t, 'guard') && userHas(t, 'house-rules'); if (lean) console.log(`  note      user layer found in ${fwd(t.CL)}: adding only what it lacks (--full places every part anyway)`);
+      resolve([lean ? 'repo' : 'all'], t).forEach(push);
+    }
     else if (GROUPS[n]) partsOfKind(GROUPS[n]).forEach(push);
     else if (SETS[n]) SETS[n].forEach(push);
     else if (INDEX[n]) push(n);
@@ -207,7 +214,7 @@ export async function add(t, names) {
   return list;
 }
 export function removeParts(t, names) {
-  const have = installed(t); const pick = (n) => (n === 'all' || n === 'repo' ? have : GROUPS[n] ? have.filter((p) => INDEX[p].kind === GROUPS[n]) : SETS[n] ? SETS[n].filter((p) => have.includes(p)) : INDEX[n] ? [n] : die(2, `unknown part '${n}'`));
+  const have = installed(t); const pick = (n) => (['all', 'repo', 'default'].includes(n) ? have : GROUPS[n] ? have.filter((p) => INDEX[p].kind === GROUPS[n]) : SETS[n] ? SETS[n].filter((p) => have.includes(p)) : INDEX[n] ? [n] : die(2, `unknown part '${n}'`));
   let list = [...new Set(names.flatMap(pick))].filter((n) => have.includes(n) || console.log(`  skipped   ${n} (not installed here)`));
   const keep = list.filter((n) => have.some((o) => !list.includes(o) && (INDEX[o].requires || []).includes(n)));
   for (const n of keep) warn(t, `${n} stays: an installed part requires it`); list = list.filter((n) => !keep.includes(n));
@@ -245,7 +252,7 @@ async function main() {
   if (cmd === 'list') {
     for (const [n, p] of Object.entries(INDEX)) console.log(`${n.padEnd(18)}${p.kind.padEnd(10)}${(p.requires ? `needs ${p.requires.join(', ')}` : '').padEnd(14)}${p.what}`);
     for (const [s, parts] of Object.entries(SETS)) console.log(`set ${s.padEnd(14)}${parts.join(', ')}`);
-    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + whatever ~/.claude lacks), all, and the named sets above');
+    return console.log('\ngroups: skills, agents, rules    sets: default (what install.sh places), repo (facts + rules + whatever ~/.claude lacks), all, and the named sets above');
   }
   if (cmd === 'facts') { const { renderFacts } = await import('./modules/facts/facts.mjs'); return console.log(renderFacts(path.resolve(names[0] || '.'))); }
   if (!['add', 'remove'].includes(cmd) || !names.length) die(2, 'usage: node dropin.mjs list | add <parts> [--repo DIR | --user] | remove <parts | all> [--repo DIR | --user] | facts [DIR]');

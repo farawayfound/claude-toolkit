@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# wt-board [seconds]  one line per checkout: branch, commits ahead of base, uncommitted files, PR, last commit.
+# With a number it refreshes forever (Ctrl+C to stop); without, it prints once. The PR column asks gh (10 s cap where `timeout` exists).
+main=$(git worktree list --porcelain | sed -n '1s/^worktree //p'); [ -n "$main" ] || exit 2
+base=$(git -C "$main" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+  || { git -C "$main" rev-parse -q --verify origin/main >/dev/null && echo origin/main; } || git -C "$main" branch --show-current)
+to=$(command -v timeout >/dev/null 2>&1 && echo "timeout 10" || true)
+while :; do
+  prs=$(cd "$main" && $to gh pr list --state all --limit 50 --json number,headRefName,isDraft,state \
+    --jq '.[] | "\(.headRefName) #\(.number)\(if .isDraft then "-draft" else "-" + (.state|ascii_downcase) end)"' 2>/dev/null) || prs="(gh unavailable)"
+  rows=$(git -C "$main" worktree list --porcelain | sed -n 's/^worktree //p' | while read -r d; do
+    b=$(git -C "$d" branch --show-current)
+    pr=$(printf '%s\n' "$prs" | awk -v b="$b" '$1 == b {print $2; exit}')   # gh lists newest first
+    printf '%-26s +%-2s ~%-2s %-10s %s\n' "${b:-detached}" "$(git -C "$d" rev-list --count "$base..HEAD")" \
+      "$(git -C "$d" status --porcelain | wc -l)" "${pr:--}" "$(git -C "$d" log -1 --format=%s "$base..HEAD" | cut -c1-48)"
+  done)
+  [ -n "${1:-}" ] && clear
+  printf '%s  base %s  %s\n%s\n' "$(date +%H:%M:%S)" "$base" "$([ "$prs" = "(gh unavailable)" ] && echo "$prs")" "$rows"
+  [ -n "${1:-}" ] || break
+  sleep "$1"
+done

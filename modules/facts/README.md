@@ -6,5 +6,4 @@
 
 - Print only: `node ~/claude-toolkit/modules/facts/facts.mjs [path to your project]` or `node ~/claude-toolkit/dropin.mjs facts [path to your project]`; JSON: `node ~/claude-toolkit/modules/facts/detect.mjs [path to your project]`.
 - Into a checkout: `node ~/claude-toolkit/dropin.mjs add facts --repo .` writes the block at the top of `CLAUDE.local.md` (your own notes below it are kept), copies `detect.mjs` to `.claude/hooks/tk/` so `/orient` and `/check` can re-run it, and allow-lists the detected commands (`Bash(<cmd>:*)`) in `.claude/settings.local.json`.
-- For every repo on this machine, `--user` in place of `--repo .` (run it anywhere) places only `detect.mjs` under `~/.claude/hooks/`.
 - Confirm the commands against CI before relying on them; the block says which ones CI runs.

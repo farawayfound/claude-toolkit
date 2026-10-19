@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# wtc <N> [claude flags]  start issue N's session in its worktree: named "#<N>-<slug>", plan mode, a status line with folder and
+# branch, the terminal bell when it waits, and no IDE link (diffs stay in the terminal). wtc 0 starts the main checkout's session.
+# All of it is per session (flags and one env var): nothing is written to ~/.claude or the repo. Dry run: WTC_CLAUDE="echo claude" wtc 12
+set -euo pipefail
+[ $# -gt 0 ] || { echo "usage: wtc <issue-number> [claude flags]   (wtc 0 = the main checkout)" >&2; exit 2; }
+main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
+if [ "$1" = 0 ]; then d="$main/" name="#0-main"
+else
+  d=""; for c in "$main.wt/$1"-*/; do [ -d "$c" ] && { d=$c; break; }; done
+  [ -n "$d" ] || { echo "no worktree for issue $1 under $main.wt (run wt-new $1:<slug> first)" >&2; exit 1; }
+  name="#$(basename "$d")"
+fi
+shift
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+line=$(cygpath -m "$here/statusline.mjs" 2>/dev/null || echo "$here/statusline.mjs")
+settings=$(printf '{"statusLine":{"type":"command","command":"node \\"%s\\""},"preferredNotifChannel":"terminal_bell"}' "${line//\"/\\\"}")
+cd "$d"
+CLAUDE_CODE_AUTO_CONNECT_IDE=${CLAUDE_CODE_AUTO_CONNECT_IDE:-false} exec ${WTC_CLAUDE:-claude} -n "$name" --permission-mode plan --settings "$settings" "$@"

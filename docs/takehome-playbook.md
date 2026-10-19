@@ -16,7 +16,7 @@ For a 90-minute brief; scale the percentages for a longer one.
 | 60% | Hardened | `/break`: breakers on the real entrypoints, the hidden-test list, the mutation score; fix every CONFIRMED finding with a test | extras, never verification |
 | 75% | Feature freeze | nothing new; `/deslop` on the diff; ledger up to date | |
 | 90% | Docs and gate | `/tighten-docs`; write Decisions and AI use yourself; `/ship` until no FAIL | |
-| 100% | Submitted | the note from `/ship`; the repo link or `git archive` zip | |
+| 100% | Submitted | the note from `/ship`; the repo link or `git archive` zip (never a zip of the folder itself: its `.git/dev-toolkit-logs/` holds your prompts and the guard's decisions) | |
 
 Slip rule: cut beyond-the-prompt items first, then scope, never verification. A beyond-the-prompt item is built only after `/break` says HELD with time left, capped at about 100 lines, and logged with `/decide` as your call. A half-done extra is worse than none; a listed, unbuilt extra reads as judgment.
 

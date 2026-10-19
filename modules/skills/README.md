@@ -2,7 +2,7 @@
 
 > Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
-Fourteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node ~/claude-toolkit/dropin.mjs add check --repo .` or `cp -r ~/claude-toolkit/modules/skills/check [path to your project]/.claude/skills/`. For every repo on this machine, use `--user` instead of `--repo .` (run it anywhere) or `cp -r ~/claude-toolkit/modules/skills/check ~/.claude/skills/`.
+Fifteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node ~/claude-toolkit/dropin.mjs add check --repo .`, or by hand `mkdir -p [path to your project]/.claude/skills && cp -r ~/claude-toolkit/modules/skills/check [path to your project]/.claude/skills/` and add `/.claude/skills/check/` to `.git/info/exclude` so git does not see it. A copied folder works on its own: scripts find the repo through git and their own location (on macOS or Linux, `chmod +x` a copied skill's `scripts/*`).
 
 | Skill | Use | Output |
 |---|---|---|
@@ -20,3 +20,4 @@ Fourteen slash commands, one folder each, no shared code; a folder may carry ref
 | `access-control` | Who may read or change which records | Chokepoint, bypasses, identity source, deny-by-default matrix RED then GREEN, audit line |
 | `perf-baseline` | Slowness, timeouts, queueing | p50, p95, max and queue wait before and after, bottleneck with evidence, limits |
 | `pr-brief` | A verified change ready for review (user-invoked only) | PR title and body: problem, change, verification, measurement, risks, rollback, follow-ups |
+| `parallel` | Several issues at once (user-invoked only): `plan [issues]` before, `check` before merge | Files, overlaps, stacks and launch order; conflicts and PR claims checked. `scripts/`: `wt-new` (worktree and branch per issue with this checkout's Claude config), `wtc` (named plan-mode session, per-session status line and bell), `wt-board`, `wt-conflicts`, `wt-workspace` (a VS Code workspace beside the clone with the scripts on its terminals' PATH) |

@@ -27,25 +27,26 @@ The second command prints every part, every set and what each one needs. Keep th
 
 ```bash
 cd [path to your project]
-node ~/claude-toolkit/dropin.mjs add repo takehome --repo .
+bash ~/claude-toolkit/install.sh
 claude
 ```
 
-`repo` adds the facts block (detected test and lint commands) and the language rules; `takehome` is a set of parts. Nothing appears in `git status`: files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running).
+`install.sh` places every part (except the opt-in hooks) in this checkout: files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine that has the older opt-in user layer in `~/.claude`, it adds only what that layer lacks, so nothing loads twice; `--full` places every part anyway. It includes the facts block (detected test and lint commands) and the language rules. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running). In PowerShell: `& "$HOME\claude-toolkit\install.ps1"`.
 
 Other sizes. Each command runs where its row says, and `--repo .` means "the folder you are in":
 
 | Want | Run in | Command |
 |---|---|---|
-| The 60-minute live loop | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo live --repo .` |
+| The 60-minute live loop only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo live --repo .` |
+| The take-home loop only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add repo takehome --repo .` |
+| Several issues at once (worktree, branch and session per issue) | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add parallel --repo .` (also in `live`); then step 4 |
 | Guard and permission rules only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add safety --repo .` |
 | Specific parts | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .` (names come from step 1, for example `check reviewer`) |
-| The same parts in every repo on this machine | Terminal, any folder; then once per project | `node ~/claude-toolkit/dropin.mjs add takehome --user`, then in each project's folder `node ~/claude-toolkit/dropin.mjs add repo --repo .` |
+| One part by hand, no installer | Terminal, in your project's folder | `mkdir -p .claude/skills && cp -r ~/claude-toolkit/modules/skills/[skill] .claude/skills/`, or `mkdir -p .claude/agents && cp ~/claude-toolkit/modules/agents/[agent].md .claude/agents/`; on macOS or Linux also `chmod +x .claude/skills/[skill]/scripts/*` when the skill has scripts; add the copied paths to `.git/info/exclude` yourself |
 | The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add gate --repo .` |
-| A log of your prompts, redacted, in `~/.claude/logs/trail.jsonl` | Terminal, any folder | `node ~/claude-toolkit/dropin.mjs add trail --user` |
+| A log of your prompts, redacted, in the repo's git dir | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add trail --repo .` |
 | Preview any add or remove | the same place as that command | put ` --dry-run` at the end; nothing is written |
-| Take it all out of one project | Terminal, in that project's folder | `node ~/claude-toolkit/dropin.mjs remove all --repo .` |
-| Take it all out of `~/.claude` | Terminal, any folder | `node ~/claude-toolkit/dropin.mjs remove all --user` |
+| Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `bash ~/claude-toolkit/install.sh --uninstall` (or `node ~/claude-toolkit/dropin.mjs remove all --repo .`) |
 
 ## 3. Check it
 
@@ -55,7 +56,7 @@ Other sizes. Each command runs where its row says, and `--repo .` means "the fol
 node ~/claude-toolkit/setup/lib/selftest.mjs --quick
 ```
 
-Expect no FAIL. WARNs about the real `~/.claude` only mean the user layer is not installed.
+Expect no FAIL. The rows about the real `~/.claude` say SKIP when the optional user layer is absent, which is the normal state.
 
 **Run in: Claude Code,** one per line:
 
@@ -79,6 +80,16 @@ They show the guard, the commands and the four subagents. A fresh Windows laptop
 | Slow or queueing | `/perf-baseline [the scenario]` | p50 and p95 with queue wait split out, before and after |
 | Who may change what | `/access-control [the action or resource]` | Chokepoint, bypasses, deny-by-default matrix, audit line |
 | Any decision, as it happens | `/decide "[what was decided]" by: [me, or agent (accepted), or agent (changed)]` | One attributed row in `docs/decisions.md` |
+| Several issues at once | `/parallel plan [issue numbers]`, then in a terminal the `wt-new` line it prints and `wtc [issue]` per window; before merging, `/parallel check` | A table of files, overlaps and launch order; one worktree, branch and named plan-mode session per issue; conflicts and PR claims checked |
+
+For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run in: Terminal, in your project's folder:
+
+```bash
+.claude/skills/parallel/scripts/wt-workspace          # writes [project].code-workspace beside the clone; open it with code
+.claude/skills/parallel/scripts/wt-new 12:authz 14:paging   # or just wt-new in that workspace's terminals
+```
+
+The workspace file puts the scripts on the PATH of its own terminals (after you trust the workspace), so `wt-new`, `wtc 12`, `wt-board 10` and `wt-conflicts` work by name there. `wtc` starts each session with its name, plan mode, a status line showing the folder and branch, and the terminal bell when it waits, all through flags for that session only. Commit before review or stacking: `wt-conflicts` and `WT_BASE` stacks see commits, not the working tree.
 
 Agents are used by name in plain language, typed the same way:
 
@@ -106,10 +117,10 @@ They run in their own context, so several can work at once and none sees the mai
 
 | To | Run in | Do |
 |---|---|---|
-| Change an agent's model | any text editor | Edit the `model:` line in `[path to your project]/.claude/agents/[agent name].md`, or in `~/.claude/agents/[agent name].md` for the user layer. `inherit` follows the session |
+| Change an agent's model | any text editor | Edit the `model:` line in `[path to your project]/.claude/agents/[agent name].md`. `inherit` follows the session |
 | Turn the gate off for one repo | Terminal, in your project's folder | `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"`, or start the session with `TK_GATE=off claude` |
-| Turn every hook off | any text editor | Add `"disableAllHooks": true` to `~/.claude/settings.json`, then restart `claude` |
-| See what the guard decided | Terminal, any folder | `tail -n 20 ~/.claude/logs/guard.jsonl` (one JSON line per decision) |
+| Turn every hook off in this repo | any text editor | Add `"disableAllHooks": true` to `[path to your project]/.claude/settings.local.json`, then restart `claude` |
+| See what the guard decided | Terminal, in your project's main checkout | `tail -n 20 .git/dev-toolkit-logs/guard.jsonl` (one JSON line per decision; worktree sessions log here too) |
 | Update the toolkit | Terminal, any folder, then in each project's folder | `git -C ~/claude-toolkit pull`, then re-run the same `add` command; files you edited are kept with a warning |
 
 Parts, sets and the reasoning behind them: [README.md](README.md). Sample prompts for each situation: [docs/examples.md](docs/examples.md).

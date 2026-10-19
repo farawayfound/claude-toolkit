@@ -1,5 +1,5 @@
 {
   "safety": ["permissions", "guard"],
-  "live": ["house-rules", "permissions", "guard", "recon", "orient", "scope", "decide", "repro-fix", "check", "break", "pr-brief", "verifier", "reviewer", "test-writer", "breaker", "gate-workflow"],
+  "live": ["house-rules", "permissions", "guard", "recon", "orient", "scope", "decide", "repro-fix", "check", "break", "pr-brief", "parallel", "verifier", "reviewer", "test-writer", "breaker", "gate-workflow"],
   "takehome": ["house-rules", "permissions", "guard", "recon", "orient", "takehome-init", "scope", "decide", "check", "break", "deslop", "tighten-docs", "ship", "pr-brief", "verifier", "reviewer", "test-writer", "breaker", "gate-workflow"]
 }

@@ -2,7 +2,7 @@
 
 > Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
-Four subagents, one file each. Into a checkout: `node ~/claude-toolkit/dropin.mjs add reviewer --repo .` or `cp ~/claude-toolkit/modules/agents/reviewer.md [path to your project]/.claude/agents/`. For every repo on this machine, use `--user` instead of `--repo .` (run it anywhere).
+Four subagents, one file each. Into a checkout: `node ~/claude-toolkit/dropin.mjs add reviewer --repo .`, or by hand `mkdir -p [path to your project]/.claude/agents && cp ~/claude-toolkit/modules/agents/reviewer.md [path to your project]/.claude/agents/` and add the path to `.git/info/exclude`.
 
 | Agent | Model | Tools | Does |
 |---|---|---|---|
