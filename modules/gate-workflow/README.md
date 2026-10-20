@@ -1,6 +1,6 @@
 # gate-workflow
 
-> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `"$HOME/claude-toolkit"` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
 `/gate [base]`: eight review passes over the current change in parallel (checks, tests, scope, bypasses, security, reliability, concision, edges), then one independent agent per high or medium finding that tries to refute it. Verdict `SHIP`, `FIX FIRST` or `INCOMPLETE`. The `checks` pass is the verifier; `edges` is the breaker (inputs mutated, real entrypoints run); every other pass and every refuter is the reviewer with one lens.
 

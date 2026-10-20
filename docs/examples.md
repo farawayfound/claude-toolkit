@@ -35,7 +35,7 @@ When it offers options (for example "status for a client exception: failed | ret
 
 **Grade the suite alone.** Run in: Terminal, in your project's folder.
 ```bash
-node ~/claude-toolkit/modules/skills/break/scripts/mutate.mjs --test "[your test command, for example uv run --frozen pytest -q]" --max 15 [path of a file to mutate] [path of another file]
+node "$HOME/claude-toolkit/modules/skills/break/scripts/mutate.mjs" --test "[your test command, for example uv run --frozen pytest -q]" --max 15 [path of a file to mutate] [path of another file]
 ```
 Then, in Claude Code: `Write a failing test for each survivor, then make it pass.`
 
@@ -147,22 +147,22 @@ From docs/decisions.md and git log since [Monday], draft the PR body with /pr-br
 
 ## The kit itself
 
-`~/claude-toolkit` is where you cloned it ([Quickstart](../Quickstart.md), step 1).
+`"$HOME/claude-toolkit"` is where you cloned it ([Quickstart](../Quickstart.md), step 1). The commands below work the same in PowerShell, Git Bash and macOS unless a line says otherwise.
 
 Everything below writes into the one project you run it in; nothing goes into `~/.claude` or any global settings.
 
-**A set in this project.** Run in: Terminal, in your project's folder (PowerShell: `~\claude-toolkit\install.cmd -Set live`). Without `--set` it asks which one.
-```bash
-bash ~/claude-toolkit/install.sh --set live
+**A set in this project.** Run in: Terminal, in your project's folder. Without `--set` it asks which one; `--init` first makes a plain folder a repository.
+```
+node "$HOME/claude-toolkit/install.mjs" --set live
 ```
 
 **A set, or one or two parts.** Run in: Terminal, in your project's folder. Sets are `full`, `live`, `takehome`, `unbound`, `safety`, `repo` and `all`.
-```bash
-node ~/claude-toolkit/dropin.mjs add takehome --repo .
-node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .
+```
+node "$HOME/claude-toolkit/install.mjs" takehome
+node "$HOME/claude-toolkit/install.mjs" [part] [another part]
 ```
 
-**Several issues at once.** Run in: Claude Code first, then a terminal in the project's folder.
+**Several issues at once.** Run in: Claude Code first, then Git Bash or macOS in the project's folder.
 ```
 /parallel plan [12 14 15 17]
 ```
@@ -174,19 +174,19 @@ wtc 12                                                          # one per pane, 
 Then, in each issue's session: `/scope #12: run gh issue view 12 and restate it in one sentence. Goal: [my words]. Done: [the failing test] and the repo's checks.` Before merging, in the main checkout's session: `/parallel check`.
 
 **Prove the wiring.** Run in: Terminal, any folder.
-```bash
-node ~/claude-toolkit/setup/lib/selftest.mjs --quick
+```
+node "$HOME/claude-toolkit/setup/lib/selftest.mjs" --quick
 ```
 
-**Run the unit tests of the two scripts.** Run in: Terminal, in the `~/claude-toolkit` folder.
-```bash
-cd ~/claude-toolkit
+**Run the unit tests of the two scripts.** Run in: Terminal, any folder.
+```
+cd "$HOME/claude-toolkit"
 node --test "setup/tests/*.test.mjs"
 ```
 
 **Take it all out of this project.** Run in: Terminal, in your project's folder. Worktrees from `wt-new` go first, with `git worktree remove [path]` (their hooks point at this checkout), then:
-```bash
-bash ~/claude-toolkit/install.sh --uninstall
+```
+node "$HOME/claude-toolkit/install.mjs" --uninstall
 ```
 
 **Dry-run anything first.** Add ` --dry-run` to the end of any `add` or `remove` command; it prints the plan and writes nothing.

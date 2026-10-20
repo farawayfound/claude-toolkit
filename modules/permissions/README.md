@@ -1,6 +1,6 @@
 # permissions
 
-> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `"$HOME/claude-toolkit"` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
 `settings.json`: Claude Code's native permission rules, no node and no hooks involved, so they also hold on a machine where hooks are off.
 
@@ -8,4 +8,4 @@
 - ask: `git push`, `gh pr create`, `gh pr merge`
 - deny: `git push --force`/`-f`, `git reset --hard`, `git clean`, `rm -rf`/`-fr`, `printenv`, `gh auth token`, reading or editing `*.env`
 
-Into a checkout: `node ~/claude-toolkit/dropin.mjs add permissions --repo .` (merged into `.claude/settings.local.json` and backed up once; existing rules are kept). `remove` subtracts exactly these rules. The `guard` part covers much more (compound commands, `.env.*` variants, SQL, infra, supply chain) but needs node.
+Into a checkout: `node "$HOME/claude-toolkit/dropin.mjs" add permissions --repo .` (merged into `.claude/settings.local.json` and backed up once; existing rules are kept). `remove` subtracts exactly these rules. The `guard` part covers much more (compound commands, `.env.*` variants, SQL, infra, supply chain) but needs node.

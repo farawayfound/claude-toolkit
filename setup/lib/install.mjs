@@ -98,7 +98,7 @@ async function globalInstall() {
   rows.push(['login', cred ? 'OK' : 'TODO', cred ? 'credentials present' : 'run `claude` to log in']);
   console.log('\nItem           Status   Detail'); for (const [a, b, x] of rows) console.log(`${a.padEnd(15)}${b.padEnd(9)}${x}`);
   if (t.warns.length) console.log(`\n${t.warns.length} warning(s) above.`);
-  console.log('Next, per repo, in a Git Bash terminal: bash ~/.claude/dev-toolkit/install.sh   (PowerShell: & "$HOME\\.claude\\dev-toolkit\\install.ps1"; one part at a time: node ~/.claude/dev-toolkit/dropin.mjs add <part> --repo .)');
+  console.log('Next, per repo, in any terminal: node "$HOME/.claude/dev-toolkit/install.mjs"   (one part at a time: node "$HOME/.claude/dev-toolkit/dropin.mjs" add <part> --repo .)');
 }
 function globalUninstall() {
   const t = target({ mode: 'user', home: F.home, dry: DRY }); console.log(`dev-toolkit global uninstall <- ${fwd(t.CL)}${DRY ? ' (dry run)' : ''}`);

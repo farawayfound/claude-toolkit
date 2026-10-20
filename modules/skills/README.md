@@ -1,8 +1,8 @@
 # skills
 
-> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `"$HOME/claude-toolkit"` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
-Fifteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node ~/claude-toolkit/dropin.mjs add check --repo .`, or by hand `mkdir -p [path to your project]/.claude/skills && cp -r ~/claude-toolkit/modules/skills/check [path to your project]/.claude/skills/` and add `/.claude/skills/check/` to `.git/info/exclude` so git does not see it. A copied folder works on its own: scripts find the repo through git and their own location (on macOS or Linux, `chmod +x` a copied skill's `scripts/*`).
+Fifteen slash commands, one folder each, no shared code; a folder may carry reference files and scripts next to its SKILL.md. Each works alone; where one names another part, that part is optional. Into a checkout: `node "$HOME/claude-toolkit/dropin.mjs" add check --repo .`, or by hand `mkdir -p [path to your project]/.claude/skills && cp -r "$HOME/claude-toolkit/modules/skills/check" [path to your project]/.claude/skills/` and add `/.claude/skills/check/` to `.git/info/exclude` so git does not see it. A copied folder works on its own: scripts find the repo through git and their own location (on macOS or Linux, `chmod +x` a copied skill's `scripts/*`).
 
 | Skill | Use | Output |
 |---|---|---|

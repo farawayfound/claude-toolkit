@@ -1,6 +1,6 @@
 # guard
 
-> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `~/claude-toolkit` is where you cloned the toolkit; `[square brackets]` are yours to replace.
+> Run the commands here in a terminal, inside your project's folder, unless a line says otherwise. `"$HOME/claude-toolkit"` is where you cloned the toolkit; `[square brackets]` are yours to replace.
 
 A PreToolUse hook for Bash, PowerShell, Read, Edit, Write, MultiEdit, NotebookEdit and Grep. `guard-rules.mjs` holds the rules (first match wins, anywhere in a compound command; read-only search segments such as `rg "git push --force" docs/` are skipped unless the rule is about leaking or executing):
 
@@ -9,7 +9,7 @@ A PreToolUse hook for Bash, PowerShell, Read, Edit, Write, MultiEdit, NotebookEd
 
 A denied call tells the model to ask the user to run the command by hand; it never works around the guard. Every decision is appended as one JSON line to `dev-toolkit-logs/guard.jsonl` in the repo's git dir (subject redacted), so nothing is written outside the checkout; sessions in `wt-new` worktrees use the main checkout's guard and log there too. Fail-open: unreadable input or an internal error exits 0 silently, so a broken hook never blocks work.
 
-- Into a checkout: `node ~/claude-toolkit/dropin.mjs add guard --repo .` (files under `.claude/hooks/tk/`, the hook registered in `.claude/settings.local.json` with an absolute path).
+- Into a checkout: `node "$HOME/claude-toolkit/dropin.mjs" add guard --repo .` (files under `.claude/hooks/tk/`, the hook registered in `.claude/settings.local.json` with an absolute path).
 - Read the log, from the main checkout: `tail -n 20 .git/dev-toolkit-logs/guard.jsonl`. A zip of the whole folder carries it (a clone does not): delete `.git/dev-toolkit-logs/` before sending one.
 - Test by hand: `echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"git push --force"}}' | node .claude/hooks/tk/guard.mjs`
-- Off: `"disableAllHooks": true` in `.claude/settings.local.json` and restart `claude`, or `node ~/claude-toolkit/dropin.mjs remove guard --repo .`. The contract cases live in `setup/tests/hook-cases.json`.
+- Off: `"disableAllHooks": true` in `.claude/settings.local.json` and restart `claude`, or `node "$HOME/claude-toolkit/dropin.mjs" remove guard --repo .`. The contract cases live in `setup/tests/hook-cases.json`.

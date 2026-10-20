@@ -6,7 +6,7 @@
 //   node dropin.mjs facts [DIR]                 prints the repo-facts block for CLAUDE.local.md
 // Parts: modules/index.json (`list` prints them). Groups: skills, agents, rules. Sets: repo = facts + rules + whatever ~/.claude lacks
 // (house rules, permissions, guard); default = all, or repo when an opt-in user layer exists; all = every part that is not opt-in (in --user
-// mode: minus the per-repo rules); the named sets in modules/sets.json (full, live, takehome, unbound, safety; install.sh --set) may nest
+// mode: minus the per-repo rules); the named sets in modules/sets.json (full, live, takehome, unbound, safety; install.mjs --set) may nest
 // sets and groups. A part's `requires` come along (gate needs facts, verifier needs check, breaker needs break, team needs teams).
 // Repo mode never touches git: created paths go to .git/info/exclude and `git status` must read the same before and after. A file is only
 // updated or removed while its content is what this tool wrote (hash in the manifest). Settings are merged, backed up once, and subtracted again.
@@ -61,9 +61,9 @@ export function target(o = {}) { // { mode: 'repo' | 'user', dir, home, dry, for
   else {
     const dir = path.resolve(o.dir || '.'); if (!fs.existsSync(dir)) die(2, `target not found: ${fwd(dir)}`);
     if (run('git', ['--version']).code !== 0) die(3, 'git not found: install git (bootstrap), then open a new terminal');
-    const top = git(['rev-parse', '--show-toplevel'], dir); if (top.code !== 0) die(2, `${fwd(dir)} is not inside a git repository: clone first`);
+    const top = git(['rev-parse', '--show-toplevel'], dir); if (top.code !== 0) die(2, `${fwd(dir)} is not inside a git repository: clone first, or make it one with node install.mjs --init`);
     const root = path.resolve(top.out); const inside = path.relative(root, TK);
-    if (!t.force && !inside.startsWith('..') && !path.isAbsolute(inside)) die(2, `refusing: the toolkit itself lives inside ${fwd(root)}; use a separate clone (or pass --force)`);
+    if (!t.force && !inside.startsWith('..') && !path.isAbsolute(inside)) die(2, `refusing: the toolkit itself lives inside ${fwd(root)}; clone it outside your projects, for example to "$HOME/claude-toolkit" (or pass --force)`);
     const gp = (p) => path.resolve(root, git(['rev-parse', '--git-path', p], root).out);
     Object.assign(t, { root, base: path.join(root, '.claude'), hooksRel: 'hooks/tk', stateFile: gp('dev-toolkit.json'), claudeFile: path.join(root, 'CLAUDE.local.md'),
       settingsFile: path.join(root, '.claude/settings.local.json'), backupDir: gp('dev-toolkit-backup'), exclude: gp('info/exclude'), label: fwd(root),
@@ -182,7 +182,7 @@ export function resolve(names, t, seen = new Set()) { // explicit names, groups 
   for (const n of names) {
     if (n === 'all') for (const p of Object.keys(INDEX)) { if (!INDEX[p].optIn && (t.mode === 'repo' || INDEX[p].kind !== 'rule')) push(p); } // opt-in hooks (gate, trail) are named explicitly; rules are per-repo
     else if (n === 'repo') { if (t.mode !== 'repo') die(2, 'the repo set needs --repo'); push('facts'); partsOfKind('rule').forEach(push); if (!userHas(t, 'house-rules')) push('house-rules'); if (!userHas(t, 'guard')) { push('permissions'); push('guard'); } }
-    else if (n === 'default') { // what install.sh places: every part, unless an opt-in user layer already provides them (then only what it lacks, so nothing loads twice)
+    else if (n === 'default') { // what install.mjs places: every part, unless an opt-in user layer already provides them (then only what it lacks, so nothing loads twice)
       if (t.mode !== 'repo') die(2, 'the default set needs --repo');
       const lean = userHas(t, 'guard') && userHas(t, 'house-rules'); if (lean) console.log(`  note      user layer found in ${fwd(t.CL)}: adding only what it lacks (--full places every part anyway)`);
       resolve([lean ? 'repo' : 'all'], t).forEach(push);
@@ -245,7 +245,7 @@ export function finish(t, removing = false) { // exclude block (repo), empty-dir
   if (t.dry) return console.log(`Dry run: ${c.created} to create, ${c.updated} to update, ${c.removed} to remove, ${c.unchanged} unchanged, ${c.skipped} skipped. Nothing was written.`);
   if (t.mode === 'repo') { const ok = new Set([...lines(st.snapshot), ...lines(t.snapshot)]); const leaked = [...lines(t.porcelain())].filter((l) => !ok.has(l)); if (leaked.length) die(1, `git status changed; these paths leaked into the working tree:\n  ${leaked.join('\n  ')}`); }
   console.log(`${c.created} created, ${c.updated} updated, ${c.removed} removed, ${c.unchanged} unchanged, ${c.skipped} skipped${t.mode === 'repo' ? '; git status unchanged' : ''}.${t.warns.length ? ` ${t.warns.length} warning(s) above.` : ''}`);
-  if (t.mode === 'repo' && !removing) console.log('Next: start claude in this folder, accept the trust prompt, then type /recon [topic] at its prompt');
+  if (t.mode === 'repo' && !removing) console.log(`Next: start claude in ${t.label} (restart a session already open there), accept the trust prompt, then type /recon [topic] at its prompt`);
 }
 
 // ---- CLI
@@ -255,7 +255,7 @@ async function main() {
   if (cmd === 'list') {
     for (const [n, p] of Object.entries(INDEX)) console.log(`${n.padEnd(18)}${p.kind.padEnd(10)}${(p.requires ? `needs ${p.requires.join(', ')}` : '').padEnd(14)}${p.what}`);
     for (const [s, parts] of Object.entries(SETS)) console.log(`set ${s.padEnd(14)}${parts.join(', ')}`);
-    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + whatever ~/.claude lacks), default (all, or repo when ~/.claude has the user layer), all (every part that is not opt-in), and the named sets above (install.sh --set <name>)');
+    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + whatever ~/.claude lacks), default (all, or repo when ~/.claude has the user layer), all (every part that is not opt-in), and the named sets above (install.mjs --set <name>)');
   }
   if (cmd === 'facts') { const { renderFacts } = await import('./modules/facts/facts.mjs'); return console.log(renderFacts(path.resolve(names[0] || '.'))); }
   if (!['add', 'remove'].includes(cmd) || !names.length) die(2, 'usage: node dropin.mjs list | add <parts> [--repo DIR | --user] | remove <parts | all> [--repo DIR | --user] | facts [DIR]');

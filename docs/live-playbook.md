@@ -28,8 +28,10 @@ Ask first, before any command:
 Run in: Terminal, any folder; the last line starts Claude Code.
 
 ```bash
-cd ~/dev && gh repo clone [owner]/[repo] && cd [repo]      # archive: unzip; git init -q && git add -A && git commit -qm baseline
-bash ~/claude-toolkit/install.sh --set live                 # the live set, this checkout only; git status stays the same
+cd ~/dev
+gh repo clone [owner]/[repo]
+cd [repo]                                                   # an archive instead: unzip it, cd into it, add --init to the next line
+node "$HOME/claude-toolkit/install.mjs" --set live          # the live set, this checkout only; git status stays the same
 git switch -c fix/[slug]                                    # one issue; several: see §4, one worktree per issue
 claude                                                      # accept trust, then type /recon [topic] at the Claude Code prompt
 ```
@@ -99,7 +101,7 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 | Teammates where you wanted subagents, or a team misbehaving | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json`; no restart needed |
 | Tests need a DB or service | Ask; `docker compose up -d [svc]`; else `not verified: [reason]` |
 | Rate limit or slow model | `/model sonnet`; fewer agents; continue by hand, narrating |
-| Asked to drop my config | Worktrees first (`git worktree remove [path]`), then `bash ~/claude-toolkit/install.sh --uninstall` in the repo, restart `claude` (time it the day before) |
+| Asked to drop my config | Worktrees first (`git worktree remove [path]`), then `node "$HOME/claude-toolkit/install.mjs" --uninstall` in the repo, restart `claude` (time it the day before) |
 | Asked to use their seat | `/logout` then `/login`; say plainly that hooks and agents may differ there |
 | Five minutes stuck on environment | Ask for help, or switch to reading and planning aloud |
 
@@ -136,9 +138,9 @@ Access matrix for shape 1: owner allow · peer deny · manager of owner's team a
 
 ## 10 · Before the day
 
-**T-1:** in a terminal, any folder: `claude update`, `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` with no FAIL, then the same self-test with `--live` instead of `--quick` once, and in each repo you will use (the rehearsal copy included) `bash ~/claude-toolkit/install.sh --set live` · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/team review main`, `/pr-brief [main]`), including one team so you have seen the agent list and the shutdown before the day, then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
-**T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `node ~/claude-toolkit/setup/lib/selftest.mjs --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
-**After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `git worktree remove` each worktree, then `bash ~/claude-toolkit/install.sh --uninstall` in the repo; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
+**T-1:** in a terminal, any folder: `claude update`, `node "$HOME/claude-toolkit/setup/lib/selftest.mjs" --quick` with no FAIL, then the same self-test with `--live` instead of `--quick` once, and in each repo you will use (the rehearsal copy included) `node "$HOME/claude-toolkit/install.mjs" --set live` · one full timed rehearsal on a copy of `practice/live-cli` (clone, branch, then at the Claude Code prompt `/recon [update deals]`, `/scope [the change]`, build, `/check`, `/team review main`, `/pr-brief [main]`), including one team so you have seen the agent list and the shutdown before the day, then a 15-minute `/recon` drill on a small public repo in a different language · decide permission mode (acceptEdits vs auto) and the reviewer line (`/model` vs `opus`) · usage headroom checked; model training off for the account · the recruiter's answers on format, tooling, account, repo · one-window screen share tested · backup network.
+**T-30:** reboot; Do Not Disturb; only the editor and the meeting app open; `node "$HOME/claude-toolkit/setup/lib/selftest.mjs" --quick` in an unshared terminal (never `--live` on the day); `gh auth status`; a fresh terminal in `~/dev`; clipboard cleared; no `.env` or tokens anywhere on screen.
+**After:** a thank-you note within 24 hours (what changed, how it was verified, the one follow-up); if asked, `git worktree remove` each worktree, then `node "$HOME/claude-toolkit/install.mjs" --uninstall` in the repo; delete the clone and its folder under `~/.claude/projects/` if the NDA requires it.
 
 ## 11 · Advice
 

@@ -3,7 +3,7 @@
 Two layers, each a script at the toolkit root. The parts themselves are documented in [`../README.md`](../README.md). No Claude config is written outside the repos you install into.
 
 - **Machine layer**: `bootstrap.cmd` installs the toolchain with winget (binaries only, no Claude config). Logic: `setup/bootstrap-machine.ps1`.
-- **Repo layer**: `install.cmd` (PowerShell) / `install.sh` (Git Bash) ask which set to place (full, live, takehome or unbound) and run `dropin.mjs add <set> --repo` in one checkout, under `.claude/` and `CLAUDE.local.md`, listed in `.git/info/exclude`; git never sees it and nothing lands in `~/.claude`. Run it from the toolkit clone, once per repo.
+- **Repo layer**: `install.mjs` (any terminal: `node "$HOME/claude-toolkit/install.mjs"`; `install.cmd` and `install.sh` forward to it) asks which set to place (full, live, takehome or unbound) and runs `dropin.mjs add <set> --repo` in one checkout, under `.claude/` and `CLAUDE.local.md`, listed in `.git/info/exclude`; git never sees it and nothing lands in `~/.claude`. Run it from the toolkit clone, once per repo.
 - `selftest.ps1` proves the wiring end to end (`setup/lib/selftest.mjs`): static checks on the parts, hook contracts, drop-in round trips in sample repos (including that nothing is written to HOME), the parallel scripts, toolchain smoke, and optional live probes.
 - Opt-in only: `install-global.ps1` still builds the old user layer in `~/.claude` (every part, settings defaults, a `~/.claude/dev-toolkit` mirror, plugins for every repo). Nothing on this page needs it.
 
@@ -15,7 +15,7 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 2. Open a new terminal, then `.\bootstrap.cmd -Check` until every core row is OK
 3. `claude` (browser login once, then type `/exit` at its prompt)
 4. `.\selftest.ps1 -Quick` (no FAIL; the `~/.claude` rows SKIP when no user layer exists, which is expected)
-5. Per repo, from its root, in PowerShell: `~\claude-toolkit\install.cmd` (it asks which set; `-Set live` skips the question). In a Git Bash terminal: `bash ~/claude-toolkit/install.sh`. Never a bare `bash` in PowerShell: Windows resolves it to WSL, which has no bash to run. One part at a time instead: `node ~/claude-toolkit/dropin.mjs add [part] --repo .`
+5. Per repo, from its folder, in any terminal: `node "$HOME/claude-toolkit/install.mjs"` (it asks which set, and offers `git init` when the folder is not a repository yet; `--set live` skips the question). Parts on top: `node "$HOME/claude-toolkit/install.mjs" [part] [another part]`.
 6. Optional, per repo: the plugins the house rules mention, scoped to that repo only: `claude plugin install commit-commands@anthropic-plugin-directory --scope local` and the same for `pr-review-toolkit`. Without them the `reviewer` agent covers review.
 7. Optional: `.\selftest.ps1 -Live` (real headless probes, a few cents).
 
@@ -50,28 +50,31 @@ Backups: the first settings change in a repo backs up `.claude/settings.local.js
 | `-PresentationSettings` | Opt-in, and it writes your VS Code user settings: font 16, zoom 1, dark theme, Git Bash terminal (`node setup\lib\install.mjs vscode-settings` does the same alone). For one repo instead, `wt-workspace` writes a workspace file with its own settings |
 | exit codes | 0 core OK, 1 a core tool missing, 3 reboot required |
 
-| install.ps1 (install.sh) | selftest.ps1 |
+| install.mjs (install.cmd, install.sh) | selftest.ps1 |
 |---|---|
-| `-Target [dir]` (`--target`), default: current dir | `-Quick`: skip toolchain runs |
-| No `-Set`: asks which set (full, live, takehome, unbound); with input redirected, `full` (every part except the opt-in Stop gate; with the opt-in user layer, only what that layer lacks) | `-Live`: real headless claude probes |
-| `-Set [name]` (`--set`): that set, or any set or part name, without asking (`repo`, `safety`, `all` included) | `-Keep`: keep and print the sample repos |
-| `-Gate` (`--gate`): the opt-in Stop gate on top | `-Banned "[csv]"`: whole-word scan of every file |
-| `-DryRun` (or `-WhatIf`), `-Uninstall` (= `dropin remove all`), `-Force` (`--dry-run`, `--uninstall`, `--force`) | |
-| exit 0 ok, 1 leak/failure, 2 usage/not a repo/refused, 3 no node | exit 0 no FAIL, 1 any FAIL, 3 no node |
+| `--target [dir]` (`-Target`, or the folder as a plain word), default: current dir | `-Quick`: skip toolchain runs |
+| No set: asks which set (full, live, takehome, unbound); with input redirected, `full` (every part except the opt-in Stop gate; with the opt-in user layer, only what that layer lacks) | `-Live`: real headless claude probes |
+| `--set [name]` (`-Set`, or the name as a plain word; several add up): that set, or any set or part name, without asking (`repo`, `safety`, `all` included) | `-Keep`: keep and print the sample repos |
+| `--gate`: the opt-in Stop gate on top; `--init`: `git init` and a baseline commit when the folder is not a repository root; `--update`: `git pull` the clone first | `-Banned "[csv]"`: whole-word scan of every file |
+| `--dry-run` (`-DryRun`, `-WhatIf`), `--uninstall` (= `dropin remove all`), `--force`; one or two dashes, any case | |
+| exit 0 ok, 1 leak/failure, 2 usage/not a repo/refused, 3 no node, node before 18, or no git | exit 0 no FAIL, 1 any FAIL, 3 no node |
 
 `install-global.ps1` (opt-in user layer) keeps its own flags in its header: `-Plugins`, `-Model`, `-Effort`, `-DryRun`, `-Uninstall`, `-Home`.
 
-The `.ps1` scripts stop with a PowerShell error on an unknown or misspelled flag before doing anything; `install.sh` and `dropin.mjs` exit 2.
+Every script stops on an unknown or misspelled flag before doing anything: the `.ps1` scripts with a PowerShell error, `install.mjs` and `dropin.mjs` with exit 2.
 
 ## Kill switches and removal
 - Gate off in one repo: `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"` (Git Bash), `New-Item -ItemType File -Force (git rev-parse --git-path dev-toolkit-gate-off)` (PowerShell), or env `TK_GATE=off`.
 - All hooks off in one repo: `"disableAllHooks": true` in `[repo]/.claude/settings.local.json`, then restart `claude`.
-- Full removal, in this order: `git worktree remove [path]` for each worktree `wt-new` made (their hooks point at the main checkout's); then `install.ps1 -Uninstall` (or `install.sh --uninstall`) in each repo; delete `[repo].code-workspace` if `wt-workspace` wrote one, and `.git/dev-toolkit-logs/` if you want the logs gone. Repo-scoped plugins: `claude plugin uninstall [name]@anthropic-plugin-directory --scope local`. If you ever installed the opt-in user layer: `.\install-global.ps1 -Uninstall`.
+- Full removal, in this order: `git worktree remove [path]` for each worktree `wt-new` made (their hooks point at the main checkout's); then `node "$HOME/claude-toolkit/install.mjs" --uninstall` in each repo; delete `[repo].code-workspace` if `wt-workspace` wrote one, and `.git/dev-toolkit-logs/` if you want the logs gone. Repo-scoped plugins: `claude plugin uninstall [name]@anthropic-plugin-directory --scope local`. If you ever installed the opt-in user layer: `.\install-global.ps1 -Uninstall`.
 
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|
 | `command not found`, or STALE-PATH in the table | Open a new terminal; re-run `.\bootstrap.cmd -Check`; STALE-PATH that persists: re-run `.\bootstrap.cmd` |
+| A folder named `~` appeared in a project, or PowerShell says `The module '~' could not be loaded` | The clone ran with `~` unexpanded. Clone again with `git clone https://github.com/farawayfound/claude-toolkit.git "$HOME/claude-toolkit"`, then delete the stray folder by its full path: `Remove-Item -Recurse -Force -LiteralPath '[project folder]\~'` (`-Force` because git's object files are read-only; never a bare `~`, which is your home folder). The installer prints both lines when run from such a clone |
+| `bash` is not recognized, or starts WSL | Nothing here needs it: `node "$HOME/claude-toolkit/install.mjs"` |
+| "is not a git repository" | `--init` (or yes at the prompt) makes the folder one with a baseline commit; or clone the project first |
 | winget missing | `Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe` or App Installer from the Store |
 | Script blocked by execution policy or "downloaded from the internet" | Use `bootstrap.cmd`; or `Get-ChildItem -Recurse \| Unblock-File` in the toolkit folder |
 | `python` opens the Microsoft Store | Settings > Apps > Advanced app settings > App execution aliases: off for python.exe/python3.exe; or use `uv run python` |
@@ -79,7 +82,7 @@ The `.ps1` scripts stop with a PowerShell error on an unknown or misspelled flag
 | bootstrap exits 3 again after the reboot | `wsl --version`: if it prints a version, WSL is in; continue with `.\bootstrap.cmd -Check` |
 | selftest P1 FAIL "stale terminal PATH" | Tools were installed after this terminal or VS Code started: open a new terminal (restart VS Code), then re-run |
 | Docker Desktop stuck starting | `wsl --shutdown`, then start Docker Desktop again |
-| "hook error" on every tool call | Re-run `bash ~/claude-toolkit/install.sh` in that repo, then `.\selftest.ps1 -Quick`; meanwhile `disableAllHooks` in `.claude/settings.local.json` |
+| "hook error" on every tool call | Re-run `node "$HOME/claude-toolkit/install.mjs"` in that repo, then `.\selftest.ps1 -Quick`; meanwhile `disableAllHooks` in `.claude/settings.local.json` |
 | Plugin not found | `claude plugin marketplace update anthropic-plugin-directory`, then the step 6 install again |
 | settings.local.json broken | Restore the backup under `[git dir]/dev-toolkit-backup/`; the installer never overwrites invalid JSON |
 | Claude Code cannot find Git Bash | Add `"env": {"CLAUDE_CODE_GIT_BASH_PATH": "C:/Program Files/Git/bin/bash.exe"}` to `[repo]/.claude/settings.local.json` (the opt-in user layer used to set it globally) |

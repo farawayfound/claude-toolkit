@@ -1,39 +1,38 @@
 # Quickstart
 
-From a fresh clone to a working setup in a repo, then the shortest useful guide to using it. Needs Node 18+, git and Claude Code. There is nothing to `npm install`.
+From a fresh clone to a working setup in a repo, then the shortest useful guide to using it. Needs git, Node 18+ and Claude Code; there is nothing to `npm install`. Missing git or Node? Windows: `winget install Git.Git OpenJS.NodeJS.LTS`; macOS: `xcode-select --install` for git and `brew install node` (or the installer from nodejs.org). Open a new terminal afterwards.
 
 **How to read the commands**
 
 - `[square brackets]` mean replace this with your own value, and do not type the brackets. Everything not in brackets is copy-paste exactly as written.
 - Every block says where to run it:
-  - **Terminal** is Git Bash on Windows, or any shell on macOS and Linux. Lines marked **PowerShell** are for that shell; there, `~\claude-toolkit` is the clone.
+  - **Terminal** is any terminal: PowerShell on Windows, Terminal on macOS, Git Bash, a Linux shell (not `cmd.exe`). The install, update, check and removal commands work unchanged in all of them. Lines marked **Git Bash or macOS** use POSIX tools.
   - **Claude Code** means type it at the prompt of a running `claude` session, not in a terminal. Start one with `claude` from your project's folder.
-- `~/claude-toolkit` is where step 1 puts the clone. If you clone somewhere else, use that path instead.
+- `"$HOME/claude-toolkit"`, quotes included, is where step 1 puts the clone. Never shorten it to `~/claude-toolkit`: Windows PowerShell hands `~` to git and node unexpanded, so the clone lands in a folder literally named `~` inside whatever folder you are in. The installer refuses to run from such a folder and prints the fix.
 
-## 1. Get it
+## 1. Get it (once per machine)
 
 **Run in: Terminal, any folder.**
 
-```bash
-git clone https://github.com/farawayfound/claude-toolkit.git ~/claude-toolkit
-node ~/claude-toolkit/dropin.mjs list
+```
+git clone https://github.com/farawayfound/claude-toolkit.git "$HOME/claude-toolkit"
 ```
 
-The second command prints every part, every set and what each one needs. Keep the clone outside the repos you work in; the installer refuses a target that contains it.
+Keep the clone outside the repos you work in; the installer refuses a target that contains it. `node "$HOME/claude-toolkit/dropin.mjs" list` prints every part, every set and what each one needs.
 
 ## 2. Put it in a repo
 
-**Run in: Terminal, inside your project's folder** (the root of a git checkout; a folder that is not one yet gets `git init && git add -A && git commit -m baseline` first):
+**Run in: Terminal, in your project's folder:**
 
-```bash
+```
 cd [path to your project]
-bash ~/claude-toolkit/install.sh
+node "$HOME/claude-toolkit/install.mjs"
 claude
 ```
 
-**PowerShell:** the same step is `~\claude-toolkit\install.cmd`. Never a bare `bash` there: Windows resolves it to WSL, which has no bash to run.
+The installer asks which set to place. A folder that is not a git repository yet gets a question first: make it one (`git init` and a baseline commit of its files), or stop; `--init` answers yes up front. A folder inside a bigger repository is asked whether to install at that repository's root (Enter) or to become a repository of its own. Every run prints the clone it ran from and the folder to start `claude` in.
 
-The installer asks which set to place:
+Already inside Claude Code? Put `!` before the line at its prompt: `! node "$HOME/claude-toolkit/install.mjs" --set live --init`. There is no menu there, so name the set; then `/exit` and start `claude` again so the hooks and skills load. `install.cmd` and `install.sh` in the clone still work: they forward to `install.mjs` with the same flags.
 
 | Set | Fits | Places |
 |---|---|---|
@@ -42,29 +41,29 @@ The installer asks which set to place:
 | `takehome` | A timed challenge, 90 minutes to 3 hours | the base, `recon`, `takehome-init`, `scope`, `decide`, `check`, `break`, `deslop`, `tighten-docs`, `ship`, `team`; all four agents; `trail` |
 | `unbound` | No time limit, a general set | everything in `live` plus `access-control`, `perf-baseline`, `break`, `deslop`, `tighten-docs`, `parallel`, the `breaker` agent and the `/gate` workflow; no `trail` |
 
-The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules and the agent-teams switch. `--set live` (PowerShell: `-Set live`) skips the question; a script or a pipe with no `--set` gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. `claude` starts a session in this folder (accept the trust prompt; restart any session that was already running). On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
+The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules and the agent-teams switch. `--set live` skips the question (so do `-Set live` and a plain `live`); a script or a pipe with no set gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
 
-Other sizes. Each command runs where its row says, and `--repo .` means "the folder you are in":
+Other sizes. Each command runs where its row says; every name you give the installer adds to what is already there:
 
 | Want | Run in | Command |
 |---|---|---|
-| A set without the question | Terminal, in your project's folder | `bash ~/claude-toolkit/install.sh --set takehome` (PowerShell: `~\claude-toolkit\install.cmd -Set takehome`) |
-| More parts on top of a set | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add break gate-workflow --repo .` (a live slot that turned out to be 90 minutes); another set's name works the same way and only adds |
-| Several issues at once (worktree, branch and session per issue) | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add parallel --repo .` (in `unbound` and `full`); then step 4 |
-| Guard and permission rules only | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add safety --repo .` |
-| Specific parts | Terminal, in your project's folder | `node ~/claude-toolkit/dropin.mjs add [part] [another part] --repo .` (names come from step 1, for example `check reviewer`) |
-| One part by hand, no installer | Terminal, in your project's folder | `mkdir -p .claude/skills && cp -r ~/claude-toolkit/modules/skills/[skill] .claude/skills/`, or `mkdir -p .claude/agents && cp ~/claude-toolkit/modules/agents/[agent].md .claude/agents/`; on macOS or Linux also `chmod +x .claude/skills/[skill]/scripts/*` when the skill has scripts; add the copied paths to `.git/info/exclude` yourself |
-| The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `bash ~/claude-toolkit/install.sh --set live --gate`, or `node ~/claude-toolkit/dropin.mjs add gate --repo .` |
-| Agent teams off again, or on for a set that lacks them | any text editor, or a terminal in your project's folder | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json` (no restart needed); `node ~/claude-toolkit/dropin.mjs add team --repo .` to add the skill and the switch |
+| A set without the question | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" --set takehome` |
+| More parts on top of a set | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" break gate-workflow` (a live slot that turned out to be 90 minutes); another set's name works the same way and only adds |
+| Several issues at once (worktree, branch and session per issue) | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" parallel` (in `unbound` and `full`); then step 4 |
+| Guard and permission rules only | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" safety` |
+| Specific parts | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" [part] [another part]` (names come from step 1, for example `check reviewer`) |
+| One part by hand, no installer | Git Bash or macOS, in your project's folder | `mkdir -p .claude/skills && cp -r "$HOME/claude-toolkit/modules/skills/[skill]" .claude/skills/`, or `mkdir -p .claude/agents && cp "$HOME/claude-toolkit/modules/agents/[agent].md" .claude/agents/`; on macOS or Linux also `chmod +x .claude/skills/[skill]/scripts/*` when the skill has scripts; add the copied paths to `.git/info/exclude` yourself |
+| The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" --set live --gate`, or `node "$HOME/claude-toolkit/install.mjs" gate` |
+| Agent teams off again, or on for a set that lacks them | any text editor, or a terminal in your project's folder | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json` (no restart needed); `node "$HOME/claude-toolkit/install.mjs" team` to add the skill and the switch |
 | Preview any add or remove | the same place as that command | put ` --dry-run` at the end; nothing is written |
-| Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `bash ~/claude-toolkit/install.sh --uninstall` (or `node ~/claude-toolkit/dropin.mjs remove all --repo .`) |
+| Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `node "$HOME/claude-toolkit/install.mjs" --uninstall` |
 
 ## 3. Check it
 
 **Run in: Terminal, any folder:**
 
-```bash
-node ~/claude-toolkit/setup/lib/selftest.mjs --quick
+```
+node "$HOME/claude-toolkit/setup/lib/selftest.mjs" --quick
 ```
 
 Expect no FAIL. The rows about the real `~/.claude` say SKIP when the optional user layer is absent, which is the normal state.
@@ -96,7 +95,7 @@ They show the guard, the commands and the subagents of the set you placed. A fre
 
 Teammates appear in the agent list below the prompt: arrow keys select one, Enter opens it to talk to it, `x` stops it, Ctrl+T shows the shared task list. Each teammate is a full session, so `/team` says how many it will spawn before it does.
 
-For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run in: Terminal, in your project's folder:
+For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run in: Git Bash or macOS, in your project's folder:
 
 ```bash
 .claude/skills/parallel/scripts/wt-workspace          # writes [project].code-workspace beside the clone; open it with code
@@ -132,10 +131,10 @@ They run in their own context, so several can work at once and none sees the mai
 | To | Run in | Do |
 |---|---|---|
 | Change an agent's model | any text editor | Edit the `model:` line in `[path to your project]/.claude/agents/[agent name].md`. `inherit` follows the session |
-| Turn the gate off for one repo | Terminal, in your project's folder | `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"`, or start the session with `TK_GATE=off claude` |
+| Turn the gate off for one repo | Terminal, in your project's folder | Git Bash or macOS: `touch "$(git rev-parse --git-path dev-toolkit-gate-off)"`, or start the session with `TK_GATE=off claude`. PowerShell: `New-Item -ItemType File -Force (git rev-parse --git-path dev-toolkit-gate-off)` |
 | Turn agent teams off for one repo | any text editor | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `[path to your project]/.claude/settings.local.json`; the running session picks it up |
 | Turn every hook off in this repo | any text editor | Add `"disableAllHooks": true` to `[path to your project]/.claude/settings.local.json`, then restart `claude` |
-| See what the guard decided, or what the team did | Terminal, in your project's main checkout | `tail -n 20 .git/dev-toolkit-logs/guard.jsonl` (one JSON line per decision; worktree sessions log here too); `teams.jsonl` for tasks and idle teammates, `trail.jsonl` for your prompts |
-| Update the toolkit | Terminal, any folder, then in each project's folder | `git -C ~/claude-toolkit pull`, then re-run the same install or `add` command; files you edited are kept with a warning |
+| See what the guard decided, or what the team did | Terminal, in your project's main checkout | `tail -n 20 .git/dev-toolkit-logs/guard.jsonl` (PowerShell: `Get-Content -Tail 20 .git/dev-toolkit-logs/guard.jsonl`; one JSON line per decision; worktree sessions log here too); `teams.jsonl` for tasks and idle teammates, `trail.jsonl` for your prompts |
+| Update the toolkit | Terminal, in each project's folder | `node "$HOME/claude-toolkit/install.mjs" --update --set [the set you placed]`: pulls the clone, then re-applies the set; files you edited are kept with a warning |
 
 Parts, sets and the reasoning behind them: [README.md](README.md). Sample prompts for each situation: [docs/examples.md](docs/examples.md).

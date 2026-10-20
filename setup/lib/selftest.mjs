@@ -5,7 +5,7 @@ import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'
 import { spawnSync } from 'node:child_process'; import { fileURLToPath } from 'node:url';
 import { scenarioA, scenarioB, untrackedB, expected } from '../tests/fixture.mjs';
 
-const TK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'); const INST = path.join(TK, 'setup/lib/install.mjs'); const DROP = path.join(TK, 'dropin.mjs'); const MOD = path.join(TK, 'modules');
+const TK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'); const INST = path.join(TK, 'setup/lib/install.mjs'); const INSTALL = path.join(TK, 'install.mjs'); const DROP = path.join(TK, 'dropin.mjs'); const MOD = path.join(TK, 'modules');
 const argv = process.argv.slice(2); const QUICK = argv.includes('--quick'); const LIVE = argv.includes('--live'); const KEEP = argv.includes('--keep');
 const bi = argv.indexOf('--banned'); const BANNED = bi >= 0 ? (argv[bi + 1] || '').split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean) : [];
 const WIN = process.platform === 'win32'; const T0 = Date.now(); const rows = [];
@@ -187,7 +187,7 @@ const g1 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH]); ok('
 let gs = {}; try { gs = JSON.parse(read(GS)); } catch { /* checked below */ }
 ok('E1.2', 'unrelated settings keys preserved', gs.theme === 'dark' && JSON.stringify(gs.enabledPlugins) === JSON.stringify(seed.enabledPlugins) && JSON.stringify(gs.custom) === JSON.stringify(seed.custom) && gs.permissions?.allow?.[0] === 'Bash(make:*)', JSON.stringify(gs).slice(0, 200));
 const userHooks = hookSrc.filter(([n]) => !INDEX[n].optIn).map(([, f]) => f);
-const placed = [...skills.filter((s) => !INDEX[s].optIn).map((s) => `skills/${s}/SKILL.md`), ...agents.map((a) => `agents/${a}.md`), ...userHooks.map((h) => `hooks/${h}`), ...wfs.map((f) => `workflows/${path.basename(f)}`), 'dev-toolkit/install.ps1', 'dev-toolkit/dropin.mjs', 'dev-toolkit/setup/lib/install.mjs', 'CLAUDE.md'];
+const placed = [...skills.filter((s) => !INDEX[s].optIn).map((s) => `skills/${s}/SKILL.md`), ...agents.map((a) => `agents/${a}.md`), ...userHooks.map((h) => `hooks/${h}`), ...wfs.map((f) => `workflows/${path.basename(f)}`), 'dev-toolkit/install.mjs', 'dev-toolkit/dropin.mjs', 'dev-toolkit/setup/lib/install.mjs', 'CLAUDE.md'];
 const gMiss = placed.filter((p) => !exists(path.join(GH, '.claude', p))); ok('E1.3', 'skills, agents, hooks, dev-toolkit mirror, CLAUDE.md block present', !gMiss.length && readIf(path.join(GH, '.claude/CLAUDE.md')).includes('<!-- dev-toolkit:begin -->'), `missing: ${gMiss.join(', ')}`);
 const gcmd = settingsCmds(gs).find(([ev, c]) => ev === 'PreToolUse' && /guard\.mjs/.test(c))?.[1] || '';
 ok('E1.4', 'guard hook rendered with an absolute path that exists', gcmd && !gcmd.includes('__HOOKS_DIR__') && exists(scriptOf(gcmd) || ''), gcmd || 'no guard entry');
@@ -205,28 +205,28 @@ const teamsLog = readIf(path.join(teamsHome, '.claude/logs/teams.jsonl')).trim()
 ok('B5', 'teams hook: logs TaskCreated, TaskCompleted and TeammateIdle; refuses a teammate completion without evidence (exit 2, reason on stderr); lets evidence, the lead and other events through; prints nothing', t1.code === 0 && t2.code === 2 && /evidence/i.test(t2.err) && t3.code === 0 && t4.code === 0 && t5.code === 0 && t6.code === 0 && !`${t1.out}${t3.out}${t5.out}`.trim() && teamsLog.length === 5 && teamsLog.every((l) => { try { return !!JSON.parse(l).ev; } catch { return false; } }), `exits ${[t1, t2, t3, t4, t5, t6].map((r) => r.code).join(',')}; t2 err ${JSON.stringify(t2.err.slice(0, 80))}; log lines ${teamsLog.length}`);
 
 // C: the installers in sample repos (Python + Node + Go). C0-C10 and C13 test the base set (-Set repo) against the temp HOME user layer;
-// C1.1 tests the full set (no -Set, input redirected), which places every part in the repo and nothing in HOME; C14 dry-runs every named set.
+// C1.1 tests the full set (no -Set, input redirected), which places every part in the repo and nothing in HOME; C14 dry-runs every named set;
+// C15 and C16 test the mistakes install.mjs catches: a clone inside a folder literally named ~, and a target that is not a repository root.
 const A = mkRepo('A', scenarioA); const B = mkRepo('B', scenarioB, untrackedB); const sA = porc(A); const sB = porc(B);
 const env = { DEV_TOOLKIT_HOME: GH };
-const dropArgs = (x) => (x.includes('-Uninstall') ? ['remove', 'all'] : [...(x.includes('repo') ? ['add', 'repo'] : ['add', 'all']), ...(x.includes('-Gate') ? ['gate'] : []), ...(x.includes('-DryRun') ? ['--dry-run'] : [])]);
-const insA = (...x) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', A, ...x], env) : drop([...dropArgs(x), '--repo', A], env));
+const insA = (...x) => sh('node', [INSTALL, '-Target', A, ...x], { env, timeout: 180000 }); // PowerShell spelling on purpose: install.mjs takes it on every platform
 const insB = (...x) => (BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(B), ...x], { env }) : null);
 const hA0 = treeHash(A); const dr = insA('-Set', 'repo', '-DryRun');
 ok('C0', 'install -Set repo -DryRun writes nothing', dr.code === 0 && treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')), tail(dr));
-if (WIN) {
-  const pristine = () => treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json'));
-  const wi = insA('-Set', 'repo', '-WhatIf'); ok('C0.1', 'install.ps1 -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
-  const ty = insA('-Unistall'); ok('C0.2', 'install.ps1 rejects a misspelled flag (-Unistall), writes nothing', ty.code !== 0 && pristine(), tail(ty));
-}
+const pristine = () => treeHash(A) === hA0 && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json'));
+const wi = insA('-Set', 'repo', '-WhatIf'); ok('C0.1', 'install.mjs -WhatIf is a dry run (writes nothing)', wi.code === 0 && /dry run/.test(wi.out) && pristine(), tail(wi));
+const ty = insA('-Unistall'); const tz = insA('-Set', 'lvie'); ok('C0.2', 'install.mjs rejects a misspelled flag (-Unistall) and set (lvie) with exit 2, writes nothing', ty.code === 2 && tz.code === 2 && pristine(), `${tail(ty, 1)}; ${tail(tz, 1)}`);
+const p1 = sh('node', [INSTALL, 'repo', A, '--dry-run'], { env }); const p2 = sh('node', [INSTALL, '--set=repo', '--repo', A, '--dry-run'], { env });
+ok('C0.3', 'install.mjs takes a set and a folder as plain words, --set=NAME and --repo DIR', [p1, p2].every((r) => r.code === 0 && /Dry run/.test(r.out)) && pristine(), `${tail(p1, 1)}; ${tail(p2, 1)}`);
 const Dd = mkRepo('D', scenarioA); const sD = porc(Dd); const hGH = treeHash(GH); const noUser = path.join(TMP, 'no-user-home'); fs.mkdirSync(noUser);
-const inst = (dir, e) => (WIN ? psFile(path.join(TK, 'install.ps1'), ['-Target', dir], e) : BASH ? sh(BASH, [fwd(path.join(TK, 'install.sh')), '--target', fwd(dir)], { env: e }) : drop(['add', 'full', '--repo', dir], e));
+const inst = (dir, e) => sh('node', [INSTALL, '--target', dir], { env: e, timeout: 180000 });
 const isFull = (d) => readIf(path.join(d, 'CLAUDE.local.md')).includes('<!-- dev-toolkit:begin -->') && ['hooks/tk/guard.mjs', 'skills/check/SKILL.md', 'skills/parallel/scripts/wt-new', 'agents/reviewer.md', 'rules/tk-python.md'].every((f) => exists(path.join(d, '.claude', f)));
 const d1 = inst(Dd, { DEV_TOOLKIT_HOME: noUser, HOME: noUser, USERPROFILE: noUser }); const dFull = isFull(Dd) && ['hooks/tk/trail.mjs', 'hooks/tk/teams.mjs', 'skills/team/SKILL.md'].every((f) => exists(path.join(Dd, '.claude', f))); const d2 = drop(['remove', 'all', '--repo', Dd], env);
 ok('C1.1', 'install with no -Set and input redirected, no user layer: the full set in the repo (rules, guard, skills, agents, trail, team); HOME untouched; removal clean', d1.code === 0 && dFull && porc(Dd) === sD && !walk(noUser).length && d2.code === 0 && !exists(path.join(Dd, '.claude')) && porc(Dd) === sD, `${tail(d1, 1)}; full ${dFull}; HOME files ${walk(noUser).join(', ')}`);
 const d3 = inst(Dd, env); const dLean = !isFull(Dd) && !exists(path.join(Dd, '.claude/hooks/tk/guard.mjs')) && exists(path.join(Dd, '.claude/rules/tk-python.md')); drop(['remove', 'all', '--repo', Dd], env);
 const d4 = drop(['add', 'all', '--repo', Dd], env); const dFull2 = isFull(Dd); const d5 = drop(['remove', 'all', '--repo', Dd], env);
 ok('C1.2', 'with a user layer present: the full set adds only what it lacks (no second guard or house rules) and says so; add all places every part; HOME unchanged', d3.code === 0 && dLean && /user layer found/.test(d3.out) && d4.code === 0 && dFull2 && d5.code === 0 && porc(Dd) === sD && treeHash(GH) === hGH, `${tail(d3, 1)}; lean ${dLean}; full ${dFull2}`);
-const a1 = insA('-Set', 'repo'); ok('C1', `${WIN ? 'install.ps1 -Set repo -Target <A>' : 'dropin add repo --repo <A>'} exits 0`, a1.code === 0, tail(a1));
+const a1 = insA('-Set', 'repo'); ok('C1', 'install.mjs -Set repo -Target <A> exits 0', a1.code === 0, tail(a1));
 const b1 = insB('--set', 'repo'); if (!b1) res('C2', 'install.sh --set repo --target <B> exits 0', 'WARN', 'Git Bash not found: skipped'); else ok('C2', 'install.sh --set repo --target <B> (Git Bash) exits 0', b1.code === 0, tail(b1));
 const la = readIf(path.join(A, 'CLAUDE.local.md')); const lb = readIf(path.join(B, 'CLAUDE.local.md'));
 ok('C3', "A's CLAUDE.local.md lists uv run --frozen pytest, npm test, go test ./...", expected.A.test.every((c) => la.includes(`\`${c}\``)), la.slice(0, 200));
@@ -258,6 +258,15 @@ ok('C13', '--uninstall restores porcelain, B user text, exclude file', ua.code =
   && (!ub || (ub.code === 0 && porc(B) === sB && read(path.join(B, 'CLAUDE.local.md')) === untrackedB['CLAUDE.local.md'] && clean(B))), `${tail(ua, 1)} ${ub ? tail(ub, 1) : ''} ${tail(up, 1)}`);
 const setRuns = Object.keys(SETS).map((s) => [s, drop(['add', s, '--repo', A, '--dry-run'], env)]); const liveOut = setRuns.find(([s]) => s === 'live')?.[1].out || '';
 ok('C14', `every named set dry-runs (${Object.keys(SETS).join(', ')}); live places reviewer, team and trail but no break, parallel or gate workflow`, setRuns.every(([, r]) => r.code === 0) && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')) && /reviewer/.test(liveOut) && /skills\/team\//.test(liveOut) && /trail\.mjs/.test(liveOut) && !/skills\/(break|parallel)\/|gate\.js/.test(liveOut), setRuns.filter(([, r]) => r.code !== 0).map(([s, r]) => `${s}: ${tail(r, 1)}`).join('; ') || liveOut.split('\n')[0]);
+const TT = path.join(TMP, 'tilde-proj', '~', 'claude-toolkit'); fs.mkdirSync(TT, { recursive: true }); fs.copyFileSync(INSTALL, path.join(TT, 'install.mjs')); // what `git clone ... ~/claude-toolkit` makes in Windows PowerShell
+const tt = sh('node', [path.join(TT, 'install.mjs'), '-Set', 'repo', '-Target', A], { env }); const ti = sh('node', [INSTALL, '-Set', 'repo', '-Init', '-Target', path.join(TMP, 'tilde-proj')], { env });
+ok('C15', 'a clone inside a folder literally named ~: install.mjs there exits 2 with the "$HOME/claude-toolkit" fix and the folder by full path; -Init beside it refuses to commit it', tt.code === 2 && tt.err.includes('"$HOME/claude-toolkit"') && tt.err.includes(`'${fwd(path.dirname(TT))}'`) && porc(A) === sA
+  && ti.code === 2 && ti.err.includes(`'${fwd(path.dirname(TT))}'`) && !exists(path.join(TMP, 'tilde-proj/.git')), `${tail(tt, 1)}; ${tail(ti, 1)}`);
+const N = path.join(TMP, 'N'); write(N, { 'app.py': 'print(1)\n', 'sub/x.py': 'x = 1\n' }); const lower = (s) => fwd(s).toLowerCase();
+const n1 = sh('node', [INSTALL, '-Set', 'repo', '-Target', N], { env }); const n2 = sh('node', [INSTALL, '-Set', 'repo', '-Target', N, '-Init'], { env }); const n3 = sh('node', [INSTALL, 'repo', '--dry-run'], { cwd: path.join(N, 'sub'), env });
+const nOk = n1.code === 2 && /--init/.test(n1.err) && n2.code === 0 && sh('git', ['rev-list', '--count', 'HEAD'], { cwd: N }).out.trim() === '1' && exists(path.join(N, '.claude/rules/tk-python.md')) && porc(N) === ''
+  && n3.code === 0 && /is inside the repository/.test(n3.out) && lower(n3.out).includes(`dev-toolkit add -> ${lower(N)}:`);
+ok('C16', 'not a repository: exits 2 naming --init; -Init makes one (one baseline commit) and installs with git status clean; a subfolder names the root it installs into', nOk, `${tail(n1, 1)}; ${tail(n2, 1)}; ${tail(n3, 1)}`);
 const g4 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH, '--model', 'probe-model', '--effort', 'low']); let g4s = {}; try { g4s = JSON.parse(read(GS)); } catch { /* checked below */ }
 ok('E1.7', '--model/--effort replace the existing model and effortLevel', g4.code === 0 && g4s.model === 'probe-model' && g4s.effortLevel === 'low', `${tail(g4, 1)}; model ${g4s.model}, effortLevel ${g4s.effortLevel}`);
 const g3 = sh('node', [INST, 'global', '--uninstall', '--home', GH]);
