@@ -1,7 +1,7 @@
 {
   "safety": ["permissions","guard"],
-  "live": ["repo","trail","team","recon","scope","decide","repro-fix","check","pr-brief","test-writer","verifier","reviewer"],
-  "takehome": ["repo","trail","team","recon","takehome-init","scope","decide","check","break","deslop","tighten-docs","ship","test-writer","verifier","reviewer","breaker"],
-  "unbound": ["repo","team","recon","scope","decide","repro-fix","check","access-control","perf-baseline","break","deslop","tighten-docs","pr-brief","parallel","test-writer","verifier","reviewer","breaker","gate-workflow"],
+  "live": ["repo","trail","team","recon","scope","repro-fix","check","deslop","pr-brief","test-writer","verifier","reviewer","builder","qa"],
+  "takehome": ["repo","trail","team","recon","takehome-init","scope","check","break","deslop","tighten-docs","ship","test-writer","verifier","reviewer","breaker","builder","qa"],
+  "unbound": ["repo","team","recon","scope","repro-fix","check","access-control","perf-baseline","break","deslop","tighten-docs","pr-brief","parallel","test-writer","verifier","reviewer","breaker","builder","qa","gate-workflow"],
   "full": ["default","trail","team"]
 }

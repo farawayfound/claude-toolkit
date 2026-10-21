@@ -2,7 +2,7 @@
 # wtc <N> [claude flags]  start issue N's session in its worktree: named "#<N>-<slug>", plan mode, a status line with folder and
 # branch, the terminal bell when it waits, and no IDE link (diffs stay in the terminal). wtc 0 starts the main checkout's session.
 # All of it is per session (flags and one env var): nothing is written to ~/.claude or the repo. Dry run: WTC_CLAUDE="echo claude" wtc 12
-# TK_TEAMMATE_MODE=tmux|auto adds --teammate-mode for split-pane agent teams (tmux or iTerm2); unset, teammates run in-process, the only mode in VS Code and Windows Terminal.
+# TK_TEAMMATE_MODE=tmux|auto adds --teammate-mode for split-pane agent teams (tmux, psmux on Windows, or iTerm2); unset, teammates run in-process, the only mode in VS Code and a plain Windows Terminal.
 set -euo pipefail
 [ $# -gt 0 ] || { echo "usage: wtc <issue-number> [claude flags]   (wtc 0 = the main checkout)" >&2; exit 2; }
 main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')

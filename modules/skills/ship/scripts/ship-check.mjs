@@ -102,7 +102,7 @@ else {
 const mds = tracked.filter((f) => /\.(md|rst|txt)$/i.test(f)); const RUBRIC = /^#+ .*(implied expectations|evaluation guess|what (the )?reviewers? (will |might )?(look|check)|likely review|review points|hidden requirements|rubric)/im;
 const rubric = mds.filter((f) => RUBRIC.test(readIf(path.join(ROOT, f)) || '')); row('rubric', 'no rubric-anticipation sections in tracked docs', rubric.length ? 'FAIL' : 'PASS', rubric.length ? `${list(rubric)}: keep reviewer guesses out of the repo; commit a requirement-to-test table instead` : '');
 const ledger = readIf(path.join(ROOT, 'docs/decisions.md')); const mine = ledger ? (ledger.match(/^\|.*\|\s*me\s*\|/gim) || []).length : 0;
-row('ledger', 'docs/decisions.md has at least one decision attributed to you', mine ? 'PASS' : 'WARN', mine ? '' : ledger ? 'no row with "| me |"; /decide records one' : 'no docs/decisions.md; /decide creates it');
+row('ledger', 'docs/decisions.md has at least one decision attributed to you', mine ? 'PASS' : 'WARN', mine ? '' : ledger ? 'no row with "| me |"; add the calls you made' : 'no docs/decisions.md; /takehome-init creates it');
 row('guide', 'AGENTS.md or CLAUDE.md tells the next reader the commands and layout', ['AGENTS.md', 'CLAUDE.md'].some((f) => fs.existsSync(path.join(ROOT, f))) ? 'PASS' : 'INFO', 'optional; /tighten-docs writes a 40-line AGENTS.md');
 
 // 6. fresh clone: the README's own commands, runner-shaped ones only

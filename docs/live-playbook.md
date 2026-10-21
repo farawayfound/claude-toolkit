@@ -43,13 +43,13 @@ Permission mode: default for recon; **Shift+Tab to acceptEdits** after the plan 
 
 Everything with a slash, and every quoted prompt, is typed at the Claude Code prompt in the project's folder; `[square brackets]` are yours to replace.
 
-**Recon** · `/recon update [record]`: four agents in one message. The brief ends in `Smallest valuable change` and up to three questions with defaults. Read the chokepoint line aloud and ask the room to confirm it.
+**Recon** · `/recon update [record]` (or plain `/recon` before the task is known): four agents in one message; the brief lands in `.claude/plan/recon.md` and ends with three questions (issues, constraints, rules) plus the `/scope` line to type. Read the chokepoint line aloud and ask the room to confirm it.
 
 **Scope** ·
 ```
-/scope [task in one sentence]. Constraints: smallest diff, the repo's own patterns, no new deps, fixtures only, nothing touches shared systems. Done means: [tests + checks]. Tracks: test-writer on the case table; [independent piece] in a worktree.
+/scope issues: [the task in one sentence, or the issue paths]; constraints: smallest diff, the repo's own patterns, no new deps, fixtures only, nothing touches shared systems; rules: done means [tests + checks], commits only when asked, one branch per issue.
 ```
-It stops with "Approve this plan, or tell me what to change." Say what to cut. Then: `Approved. Test-writer on cases 1-6 now; I will direct the fix.`
+It writes one plan file per issue under `.claude/plan/` and stops with "Approve these plans, or tell me what to change." Say what to cut. One issue: `Approved. Build plan 01 here: test-writer on its cases now; I will direct the fix.` Several: `Approved. /team build` (a builder per plan in its own worktree and branch, plus qa).
 
 **Build** · steer it:
 - `Fix at [file:line] only; use the existing [helper]; no new module.`
@@ -69,7 +69,7 @@ It stops with "Approve this plan, or tell me what to change." Say what to cut. T
 | One issue per worktree | `/parallel plan [issues]`; in a terminal `wt-new [N]:[slug] ...`, then `wtc [N]` in one pane per issue (`wt-workspace` once makes the VS Code workspace whose terminals have the scripts on PATH) | Several issues: each window passes the same gates; commit before review or stacking; `/parallel check` (`wt-conflicts`) before the PRs |
 | Isolated track, one-off | A second terminal: `claude -w [name]` (worktree under `.claude/worktrees/`, branch `worktree-[name]`) | Disjoint files only; integrate with `git -C [wt] diff` then `git apply` |
 | Background checks | `verifier` agent in the background; `/tasks` shows and stops it | After each GREEN, while you move on |
-| Agent team | `/team review`, `/team build`, `/team hunt`: named teammates with a shared task list; arrow keys and Enter in the agent list open one to talk to it; the TaskCompleted hook refuses a task without evidence | Review lenses, disjoint-file builds, competing hypotheses; each teammate is a session, so the skill says how many first |
+| Agent team | `/team build`, `/team review`, `/team hunt`: named teammates (Agent calls with a `name`) with a shared task list; arrow keys and Enter in the agent list open one to talk to it; inside a tmux or psmux session with `teammateMode: "auto"` each teammate is a pane (`setup/tmux.sh`; Windows: `tmux.cmd` installs psmux, tmux for Windows); the TaskCompleted hook refuses a task without evidence | A builder per plan plus qa, review lenses, competing hypotheses; each teammate is a session, so the skill says how many first |
 | Review passes | `/team review`, the reviewer agent per lens, `/code-review high`, `/simplify`; `/break` and `/gate` when installed | Before the PR |
 | Side question | `/btw [question]` | Answer the room without derailing the main thread |
 | Side investigation | Second terminal, same repo, read-only: "list every other write path to [system] not covered by [fn]; file:line" | The found-while-here list |
@@ -98,6 +98,7 @@ This is the "review the output critically" demo, not a crisis. Name it ("that's 
 | Wrong edit, wrong direction | `/rewind` to the checkpoint before it; restate the constraint in one line |
 | Context long, looping | `/compact`; Esc, one-line restatement; `/context` to see why |
 | Agent stuck or runaway | `/tasks`, stop it; a teammate: select it in the agent list and press `x`; re-brief smaller; `/workflows` for `/gate` |
+| "No team tool" when you asked for teammates | Start `claude` in the folder that holds `.claude/settings.local.json` (a subfolder does not read it); teammates are Agent calls with a `name`, not a separate tool; with `-p` there are none |
 | Teammates where you wanted subagents, or a team misbehaving | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json`; no restart needed |
 | Tests need a DB or service | Ask; `docker compose up -d [svc]`; else `not verified: [reason]` |
 | Rate limit or slow model | `/model sonnet`; fewer agents; continue by hand, narrating |

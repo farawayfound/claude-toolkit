@@ -37,9 +37,9 @@ Already inside Claude Code? Put `!` before the line at its prompt: `! node "$HOM
 | Set | Fits | Places |
 |---|---|---|
 | `full` (Enter) | Everything, no clock | every part except the opt-in Stop gate |
-| `live` | A 60 to 90 minute session on someone else's code | the base, `recon`, `scope`, `decide`, `repro-fix`, `check`, `pr-brief`, `team`; the `test-writer`, `verifier` and `reviewer` agents; the `trail` prompt log |
-| `takehome` | A timed challenge, 90 minutes to 3 hours | the base, `recon`, `takehome-init`, `scope`, `decide`, `check`, `break`, `deslop`, `tighten-docs`, `ship`, `team`; all four agents; `trail` |
-| `unbound` | No time limit, a general set | everything in `live` plus `access-control`, `perf-baseline`, `break`, `deslop`, `tighten-docs`, `parallel`, the `breaker` agent and the `/gate` workflow; no `trail` |
+| `live` | A 60 to 90 minute session on someone else's code | the base, `recon`, `scope`, `team`, `repro-fix`, `check`, `deslop`, `pr-brief`; the `test-writer`, `verifier`, `reviewer`, `builder` and `qa` agents; the `trail` prompt log |
+| `takehome` | A timed challenge, 90 minutes to 3 hours | the base, `recon`, `takehome-init`, `scope`, `check`, `break`, `deslop`, `tighten-docs`, `ship`, `team`; all six agents; `trail` |
+| `unbound` | No time limit, a general set | everything in `live` plus `access-control`, `perf-baseline`, `break`, `tighten-docs`, `parallel`, the `breaker` agent and the `/gate` workflow; no `trail` |
 
 The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules and the agent-teams switch. `--set live` skips the question (so do `-Set live` and a plain `live`); a script or a pipe with no set gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
 
@@ -84,16 +84,16 @@ They show the guard, the commands and the subagents of the set you placed. A fre
 
 | Situation | What you type | You get |
 |---|---|---|
-| Unfamiliar code, one change | `/recon [topic, for example update deal]`, then `/scope [the change in one sentence]` (approve the plan), then ask for the failing tests, then `/check`, then `/team review [base branch, for example main]` (or `Use the reviewer agent on the diff, one lens: [bypasses]`; `/break [feature]` and `/gate [base]` when installed), then `/pr-brief [base branch]` | A 25-line brief, an approved plan, RED then GREEN with real output, review findings that were reproduced, PR text |
+| Unfamiliar code, several issues | `/recon` (no brief needed; it writes `.claude/plan/recon.md` and asks for the issues, constraints and rules), then `/scope issues: [paths or text]; constraints: [...]; rules: [...]` (approve the plans), then `/team build` | One plan file per issue in `.claude/plan/`, ranked by fix velocity; one builder teammate per plan in its own worktree and branch, a qa teammate running the checks and adversarial tests; a PR brief per branch |
+| Unfamiliar code, one change | `/recon [topic]`, `/scope issues: [the change in one sentence]`, approve, then `build plan 01 here`, `/check`, `/deslop [base branch]`, `/team review [base branch]` (or `Use the reviewer agent on the diff`), then `/pr-brief` | RED before the fix, real check output, a review with evidence, PR text you read before pushing |
 | A take-home or challenge | `/takehome-init [path to the brief file]`, `/scope [path to the brief file]`, then the thin slice, `/break [entrypoint]`, `/deslop [base branch]`, `/tighten-docs`, `/ship` | A clean repo, a ledger of who decided what, a short README with your own Decisions and AI use, a gate that opens the repo the way a reviewer will |
 | A bug | `/repro-fix [the symptom]`; several plausible causes: `/team hunt [the symptom]` first | Failing test first, root cause in one sentence, minimal fix, sibling sweep |
 | Slow or queueing | `/perf-baseline [the scenario]` | p50 and p95 with queue wait split out, before and after |
 | Who may change what | `/access-control [the action or resource]` | Chokepoint, bypasses, deny-by-default matrix, audit line |
-| Any decision, as it happens | `/decide "[what was decided]" by: [me, or agent (accepted), or agent (changed)]` | One attributed row in `docs/decisions.md` |
-| A plan with disjoint file sets | `/team build [the approved plan]` | A task per deliverable, RED first, one teammate per file set, a verifier at the end; the lead re-runs the decisive command |
+| Plans already approved | `/team build` (or `/team build .claude/plan/01-*.md .claude/plan/02-*.md` for some of them) | A worktree and branch per plan, named teammates `build-[N]-[slug]` and `qa`, evidence per task; the lead re-runs the decisive command and records the verdict in `.claude/plan/index.md` |
 | Several issues at once | `/parallel plan [issue numbers]`, then in a terminal the `wt-new` line it prints and `wtc [issue]` per window; before merging, `/parallel check` | A table of files, overlaps and launch order; one worktree, branch and named plan-mode session per issue; conflicts and PR claims checked |
 
-Teammates appear in the agent list below the prompt: arrow keys select one, Enter opens it to talk to it, `x` stops it, Ctrl+T shows the shared task list. Each teammate is a full session, so `/team` says how many it will spawn before it does.
+Teammates appear in the agent list below the prompt: arrow keys select one, Enter opens it to talk to it, `x` stops it, Ctrl+T shows the shared task list. In a tmux session with `teammateMode: "tmux"` (section 4b) every teammate gets its own pane instead. Each teammate is a full session, so `/team` says how many it will spawn before it does. Start `claude` in the folder that holds `.claude/settings.local.json`: a session started in a subfolder does not read it, and then no teammate can be spawned.
 
 For several issues, the scripts sit in `.claude/skills/parallel/scripts/`. Run in: Git Bash or macOS, in your project's folder:
 
@@ -118,12 +118,26 @@ They run in their own context, so several can work at once and none sees the mai
 | `verifier` | Runs the repo's checks, reports PASS or FAIL with output (sonnet) | Never |
 | `reviewer` | Adversarial read of a diff, or one lens or one finding; CONFIRMED needs a reproducer (opus) | Never |
 | `breaker` | Mutates inputs, runs the real entrypoints, grades the tests | Scratch files outside the repo |
+| `builder` | Teammate: builds one plan from `.claude/plan/` in its own worktree and branch, RED first, QA hand-off, PR brief | The plan's files only |
+| `qa` | Teammate: re-runs checks per worktree, adversarial inputs through the real entrypoints, regression tests for confirmed gaps, grades the tests | Test files only |
+
+## 4b. Teammates in panes (tmux)
+
+Split-pane teams need a tmux: real tmux on macOS and Linux, and on Windows **psmux** (tmux for Windows, native, no WSL), which Claude Code drives the same way. One command sets either up:
+
+| OS | Run in | Command |
+|---|---|---|
+| Windows | Terminal (normal, no admin needed), in the toolkit folder | `.\tmux.cmd`: psmux and PowerShell 7 through winget (per user), the Claude Code CLI, `~/.psmux.conf`, `teammateMode: "auto"` |
+| macOS or Linux | Terminal | `bash "$HOME/claude-toolkit/setup/tmux.sh"`: tmux, Node 18+, git, Claude Code, `~/.tmux.conf`, `teammateMode: "auto"` |
+| Windows, afterwards | Terminal, in the toolkit folder | `.\tmux.cmd -Open [path to your project]`: Windows Terminal with a psmux session in the project on the left half of the screen, VS Code on the right |
+
+Inside the pane, the usual lines: `node "$HOME/claude-toolkit/install.mjs" --set live` once per repo, then `claude`, `/recon`, `/scope ...`, `/team build`. Each teammate opens as a pane with its name in the border (`tmux list-panes` lists them); click into one to talk to it, and the pane closes when the teammate shuts down. `setup/tmux/psmux.conf` and `setup/tmux/tmux.conf` hold the pane and status settings; `.\tmux.cmd -Check` and `bash setup/tmux.sh --check` print the status table. `teammateMode: "auto"` means panes only inside a tmux session; in VS Code or a plain terminal the team stays in-process.
 
 ## 5. Habits that make it work
 
 - Approve the plan before any edit; see RED before the fix; read the exit code, not the summary.
 - Treat an agent's or a teammate's report as a claim and re-run its decisive command.
-- Log a call with `/decide` when you make it. `me` is a call you made, `agent (accepted)` a default you approved, `agent (changed)` a proposal you overruled.
+- Decisions are recorded where they happen: the plan's Decisions table, and `docs/decisions.md` in a take-home. `me` is a call you made, `agent (accepted)` a default you approved, `agent (changed)` a proposal you overruled.
 - Write the README's Decisions and AI use sections yourself; the tools leave a placeholder on purpose.
 
 ## Knobs and kill switches

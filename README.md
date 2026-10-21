@@ -19,7 +19,7 @@ Commands are in [Quickstart.md](Quickstart.md). This file explains how the piece
 ```
 recon ─► scope (options, questions, cases, fence) ─► you approve
       ─► test-writer: RED ─► fix ─► check ─► review (reviewer, or team review; break + gate when installed)
-      ─► pr-brief, or deslop ─► tighten-docs ─► ship          every decision ─► decide (ledger)
+      ─► pr-brief, or deslop ─► tighten-docs ─► ship          several issues: scope writes a plan per issue ─► team build
 ```
 
 Read-only stages (`recon`, `verifier`, `reviewer`, `breaker`) run in parallel and in the background. Writers run one at a time, or in separate worktrees on disjoint files; several issues at once get one worktree, branch and session each through `parallel`, and a review, a disjoint-file build or a bug hunt can run as an agent team through `team`. Two playbooks cover timing and what to say: [live](docs/live-playbook.md) and [take-home](docs/takehome-playbook.md).
@@ -30,21 +30,21 @@ The installer asks which set to place. Each is a named list in `modules/sets.jso
 
 | Set | For | Adds |
 |---|---|---|
-| `live` | A 60 to 90 minute session on someone else's code: collaboration, visible evidence, a record afterwards | `recon`, `scope`, `decide`, `repro-fix`, `check`, `pr-brief`; the agents `test-writer`, `verifier`, `reviewer`; the `trail` prompt log |
-| `takehome` | A timed challenge of 90 minutes to 3 hours, where the repository is the product | `recon`, `takehome-init`, `scope`, `decide`, `check`, `break`, `deslop`, `tighten-docs`, `ship`; all four agents; `trail` |
-| `unbound` | Work with no clock: the general-purpose set | `live` plus `access-control`, `perf-baseline`, `break`, `deslop`, `tighten-docs`, `parallel`, the `breaker` agent and the `gate-workflow` review, minus `trail` |
+| `live` | A 60 to 90 minute session on someone else's code: collaboration, visible evidence, a record afterwards | `recon`, `scope`, `repro-fix`, `check`, `deslop`, `pr-brief`; the agents `test-writer`, `verifier`, `reviewer`, `builder`, `qa`; the `trail` prompt log |
+| `takehome` | A timed challenge of 90 minutes to 3 hours, where the repository is the product | `recon`, `takehome-init`, `scope`, `check`, `break`, `deslop`, `tighten-docs`, `ship`; all six agents; `trail` |
+| `unbound` | Work with no clock: the general-purpose set | `live` plus `access-control`, `perf-baseline`, `break`, `tighten-docs`, `parallel`, the `breaker` agent and the `gate-workflow` review, minus `trail` |
 | `full` | Every part except the opt-in Stop gate | `unbound` plus `takehome-init`, `ship` and `trail` |
 
 `safety` (permissions and guard) and the built-in `repo` set (facts, rules, and the guardrails unless the opt-in user layer already has them) stay available by name; `all` is every part that is not opt-in, and `default` is `all`, or `repo` on a machine where the opt-in user layer provides the rest. A part's `requires` come along: `verifier` brings `check`, `breaker` brings `break`, `gate` brings `facts`, `team` brings `teams`. The live set leaves out `break`, `gate-workflow` and `parallel` on purpose: with an hour on the clock, the `reviewer` agent with one lens per probe, or `/team review`, is the review, and `node "$HOME/claude-toolkit/install.mjs" break gate-workflow` adds the rest for a longer slot.
 
 ## Parts
 
-Thirty-two parts in a flat catalog (`modules/index.json`; `node "$HOME/claude-toolkit/dropin.mjs" list` prints it with what each needs). By role:
+Thirty-three parts in a flat catalog (`modules/index.json`; `node "$HOME/claude-toolkit/dropin.mjs" list` prints it with what each needs). By role:
 
-- **Orient and plan:** `recon` (four read-only passes, as parallel agents or in sequence), `scope`, `decide`, `takehome-init`.
+- **Orient and plan:** `recon` (four read-only passes into `.claude/plan/recon.md`, with or without a brief), `scope` (one self-contained plan file per issue, ranked by fix velocity, decisions recorded inside it), `takehome-init`.
 - **Several issues at once:** `parallel`, a skill that maps overlaps and launch order and checks PRs before merge, with scripts for you: `wt-new` (a worktree and branch per issue, each with this checkout's Claude config), `wtc` (a named plan-mode session per worktree), `wt-board`, `wt-conflicts` and `wt-workspace`.
-- **Agent teams:** `teams` (the experimental switch, an audit log of tasks and idle teammates in the repo's git dir, and a hook that refuses a task completion without evidence) and `team`, the skill that runs a review, a disjoint-file build or a competing-hypotheses hunt as named teammates spawned from the toolkit's own agents.
-- **Build and verify:** `repro-fix`, `check`, `access-control`, `perf-baseline`, with the agents `test-writer` and `verifier`.
+- **Agent teams:** `teams` (the experimental switch, the shared task list on every model, an audit log of tasks and idle teammates in the repo's git dir, and a hook that refuses a task completion without evidence) and `team`, the skill that builds the plans with one `builder` teammate per plan in its own worktree and branch plus a `qa` teammate, runs a review with one lens per teammate, or a competing-hypothesis bug hunt. Split panes through tmux: `setup/tmux.sh` on macOS and Linux, `tmux.cmd` on Windows (psmux, tmux for Windows, no WSL).
+- **Build and verify:** `repro-fix`, `check`, `access-control`, `perf-baseline`, with the agents `test-writer`, `verifier`, `builder` and `qa`.
 - **Break and review:** `break` and its agent `breaker`, the `reviewer` agent, and `gate-workflow`, the eight-lens review that checks its own findings.
 - **Trim and hand over:** `deslop`, `tighten-docs`, `ship`, `pr-brief`.
 - **Guardrails and records:** `house-rules` (the CLAUDE.md block), `permissions`, `guard`, `facts`, the `trail` prompt log, and the opt-in `gate` hook.
@@ -82,4 +82,4 @@ Apache-2.0, see `LICENSE` and `NOTICE`. It is permissive like MIT and adds an ex
 
 ## Layout
 
-`modules/` parts, `index.json` and `sets.json` · `dropin.mjs` placement and removal · `install.mjs` the per-repo installer for any terminal (asks which set; `install.sh` and `install.cmd` forward to it) · `install-global.ps1` the opt-in user layer · `setup/` the Windows laptop path, the self-test and the unit tests · `docs/` playbooks and examples · `practice/live-cli` a small CLI with planted authorization, pagination and error-handling problems to rehearse on.
+`modules/` parts, `index.json` and `sets.json` · `dropin.mjs` placement and removal · `tmux.cmd` and `setup/tmux.sh` split-pane agent teams (psmux on Windows, tmux elsewhere; `setup/tmux/`) · `install.mjs` the per-repo installer for any terminal (asks which set; `install.sh` and `install.cmd` forward to it) · `install-global.ps1` the opt-in user layer · `setup/` the Windows laptop path, the self-test and the unit tests · `docs/` playbooks and examples · `practice/live-cli` a small CLI with planted authorization, pagination and error-handling problems to rehearse on.

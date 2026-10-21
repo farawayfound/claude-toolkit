@@ -1,14 +1,29 @@
 {
-  "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
+  },
   "hooks": {
     "TaskCreated": [
-      { "hooks": [{ "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }] }
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }
+        ]
+      }
     ],
     "TaskCompleted": [
-      { "hooks": [{ "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }] }
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }
+        ]
+      }
     ],
     "TeammateIdle": [
-      { "hooks": [{ "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }] }
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"__HOOKS_DIR__/teams.mjs\"", "timeout": 5 }
+        ]
+      }
     ]
   }
 }

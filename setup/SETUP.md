@@ -4,6 +4,7 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 
 - **Machine layer**: `bootstrap.cmd` installs the toolchain with winget (binaries only, no Claude config). Logic: `setup/bootstrap-machine.ps1`.
 - **Repo layer**: `install.mjs` (any terminal: `node "$HOME/claude-toolkit/install.mjs"`; `install.cmd` and `install.sh` forward to it) asks which set to place (full, live, takehome or unbound) and runs `dropin.mjs add <set> --repo` in one checkout, under `.claude/` and `CLAUDE.local.md`, listed in `.git/info/exclude`; git never sees it and nothing lands in `~/.claude`. Run it from the toolkit clone, once per repo.
+- **Teammates in their own panes**: `tmux.cmd` on Windows (psmux, tmux for Windows, plus PowerShell 7 and the Claude Code CLI, all per user through winget and the official installer; `~/.psmux.conf` from `setup/tmux/psmux.conf`) or `bash setup/tmux.sh` on macOS and Linux (tmux, Node 18+, git, Claude Code, `~/.tmux.conf` from `setup/tmux/tmux.conf`). Both set `teammateMode: "auto"` in `~/.claude/settings.json`: panes inside a tmux session, in-process elsewhere. `tmux.cmd -Open [repo]` opens Windows Terminal with a psmux session in the repo on the left half and VS Code on the right. Logic: `setup/tmux.ps1`, `setup/tmux.sh`.
 - `selftest.ps1` proves the wiring end to end (`setup/lib/selftest.mjs`): static checks on the parts, hook contracts, drop-in round trips in sample repos (including that nothing is written to HOME), the parallel scripts, toolchain smoke, and optional live probes.
 - Opt-in only: `install-global.ps1` still builds the old user layer in `~/.claude` (every part, settings defaults, a `~/.claude/dev-toolkit` mirror, plugins for every repo). Nothing on this page needs it.
 
@@ -18,6 +19,7 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 5. Per repo, from its folder, in any terminal: `node "$HOME/claude-toolkit/install.mjs"` (it asks which set, and offers `git init` when the folder is not a repository yet; `--set live` skips the question). Parts on top: `node "$HOME/claude-toolkit/install.mjs" [part] [another part]`.
 6. Optional, per repo: the plugins the house rules mention, scoped to that repo only: `claude plugin install commit-commands@anthropic-plugin-directory --scope local` and the same for `pr-review-toolkit`. Without them the `reviewer` agent covers review.
 7. Optional: `.\selftest.ps1 -Live` (real headless probes, a few cents).
+8. Optional, teammates in their own panes: `.\tmux.cmd` (psmux, PowerShell 7, the Claude Code CLI; no admin, no WSL), then `.\tmux.cmd -Open [path to your project]`. In the pane the repo line is unchanged: `node "$HOME/claude-toolkit/install.mjs" --set live`.
 
 ## What lands where
 | Part | Lands in |
@@ -59,6 +61,13 @@ Backups: the first settings change in a repo backs up `.claude/settings.local.js
 | `--dry-run` (`-DryRun`, `-WhatIf`), `--uninstall` (= `dropin remove all`), `--force`; one or two dashes, any case | |
 | exit 0 ok, 1 leak/failure, 2 usage/not a repo/refused, 3 no node, node before 18, or no git | exit 0 no FAIL, 1 any FAIL, 3 no node |
 
+| tmux.cmd (setup/tmux.ps1) | setup/tmux.sh |
+|---|---|
+| No flag: install what is missing (psmux, pwsh, claude, `~/.psmux.conf`, `teammateMode`), then the status table | No flag: install what is missing, then the status table |
+| `-Check`: report only; `-WhatIf` (or `-DryRun`): print what would run | `--check`; `--dry-run` |
+| `-Open [repo]`: the split layout (psmux left, VS Code right) | |
+| exit 0 ready, 1 missing or failed | exit 0 ready, 1 missing, 2 usage |
+
 `install-global.ps1` (opt-in user layer) keeps its own flags in its header: `-Plugins`, `-Model`, `-Effort`, `-DryRun`, `-Uninstall`, `-Home`.
 
 Every script stops on an unknown or misspelled flag before doing anything: the `.ps1` scripts with a PowerShell error, `install.mjs` and `dropin.mjs` with exit 2.
@@ -79,6 +88,9 @@ Every script stops on an unknown or misspelled flag before doing anything: the `
 | Script blocked by execution policy or "downloaded from the internet" | Use `bootstrap.cmd`; or `Get-ChildItem -Recurse \| Unblock-File` in the toolkit folder |
 | `python` opens the Microsoft Store | Settings > Apps > Advanced app settings > App execution aliases: off for python.exe/python3.exe; or use `uv run python` |
 | WSL or virtualization errors | `wsl --update`; enable VT-x/virtualization in BIOS; reboot |
+| `/team` says no team tool, or teammates never appear | Start `claude` in the folder that holds `.claude/settings.local.json` (a subfolder does not read it, so the teams switch is off there); re-run `node "$HOME/claude-toolkit/install.mjs" --set live` in that folder if needed. Teammates are `Agent` calls with a `name`, not a separate tool |
+| Teammates run in-process although panes are wanted | `claude` must run inside a tmux or psmux session (`tmux new -A -s [name]`) with `teammateMode` `auto` or `tmux` in `~/.claude/settings.json`; `.\tmux.cmd -Check` or `bash setup/tmux.sh --check`. `tmux list-panes` shows one pane per teammate once a team spawns; `claude --debug-file [log]` writes `[BackendRegistry] Selected: tmux` when panes are on |
+| WSL2 wanted instead (`setup/tmux.sh` inside Ubuntu) | `wsl --install`, reboot, `wsl --install -d Ubuntu`. If `wsl` then reports `HCS_E_HYPERV_NOT_INSTALLED` with `HypervisorPresent False` and the System log shows Hyper-V-Hypervisor event 26 at every boot, the hypervisor is not starting on that machine (see microsoft/WSL#14384); use psmux instead |
 | bootstrap exits 3 again after the reboot | `wsl --version`: if it prints a version, WSL is in; continue with `.\bootstrap.cmd -Check` |
 | selftest P1 FAIL "stale terminal PATH" | Tools were installed after this terminal or VS Code started: open a new terminal (restart VS Code), then re-run |
 | Docker Desktop stuck starting | `wsl --shutdown`, then start Docker Desktop again |

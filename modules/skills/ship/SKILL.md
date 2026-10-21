@@ -17,7 +17,7 @@ What the reviewer opens is the product. Run the gate, fix what fails, then write
    - `readme` placeholders: the Decisions and AI use sections are the user's own words. Ask for them; never draft them.
    - `rubric`: delete reviewer-guess sections; what stays is a requirement-to-test table.
    - `run`: fix the README or the code, never the check.
-3. **WARN rows**: `lockfile` stays only when the install step needs it; `history` noise means one squash (`git reset --soft <first commit>` then one commit, with the user's go-ahead) or a clean repo from `/takehome-init`; `readme` over the cap means `/tighten-docs`; `ledger` empty means `/decide` for the calls the user made.
+3. **WARN rows**: `lockfile` stays only when the install step needs it; `history` noise means one squash (`git reset --soft <first commit>` then one commit, with the user's go-ahead) or a clean repo from `/takehome-init`; `readme` over the cap means `/tighten-docs`; `ledger` empty means adding the calls the user made as rows by `me`.
 4. Re-run until no FAIL. Leave WARN rows the user has accepted, and list them in the note.
 5. **Submission note**, at most 12 lines, printed and not sent:
 ```

@@ -273,6 +273,7 @@ if ((Test-Tool 'npm').Ok -and ("$(& cmd.exe /d /c 'npm ls -g @anthropic-ai/claud
 if ((Test-Tool 'gh').Ok) { & gh auth status *> $null; if ($LASTEXITCODE -ne 0) { $script:Manual += 'GitHub: gh auth login --web (GitHub.com, HTTPS)' } }
 if ((Test-Tool 'git').Ok -and (-not "$(& git config --global user.name)" -or -not "$(& git config --global user.email)")) { $script:Manual += 'Git identity: git config --global user.name "<name>"; git config --global user.email "<GitHub email>"' }
 if ($script:Stub) { $script:Manual += 'python opens the Store: Settings > Apps > Advanced app settings > App execution aliases, turn off python.exe and python3.exe (or keep using uv run python)' }
+$script:Manual += 'Teammates in their own panes (psmux): .\tmux.cmd; see setup\SETUP.md'
 $script:Manual += 'Next: .\install-global.ps1 (close all claude sessions first)'
 
 $script:Rows | Format-Table Tool, Group, Status, @{ n = 'Version'; e = { $v = "$($_.Version)"; if ($v.Length -gt 40) { $v.Substring(0, 40) } else { $v } } }, Fix -AutoSize -Wrap | Out-String -Width 220 | Write-Host

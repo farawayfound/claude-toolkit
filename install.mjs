@@ -19,8 +19,8 @@ import { spawnSync } from 'node:child_process'; import { fileURLToPath } from 'n
 const SELF = fileURLToPath(import.meta.url); const TK = path.dirname(SELF); const WIN = process.platform === 'win32';
 const URL = 'https://github.com/farawayfound/claude-toolkit.git';
 const MENU = [['full', 'every part except the opt-in Stop gate'],
-  ['live', "60-90 minute session on someone else's code: recon, scope, decide, repro-fix, check, pr-brief, team; three agents; prompt log"],
-  ['takehome', 'timed challenge, 90 minutes to 3 hours: takehome-init, scope, decide, check, break, deslop, tighten-docs, ship, team; four agents; prompt log'],
+  ['live', "60-90 minute session on someone else's code: recon, scope (a plan per issue), team build, repro-fix, check, deslop, pr-brief; five agents; prompt log"],
+  ['takehome', 'timed challenge, 90 minutes to 3 hours: takehome-init, scope, check, break, deslop, tighten-docs, ship, team; six agents; prompt log'],
   ['unbound', 'no time limit: everything general-purpose, including parallel and the /gate review']];
 const FLAGS = { set: 'set', target: 'target', repo: 'target', gate: 'gate', init: 'init', update: 'update', dryrun: 'dry', whatif: 'dry', force: 'force', uninstall: 'uninstall', help: 'help', h: 'help', '?': 'help' };
 const OPTIONS = '--set NAME, --target DIR, --gate, --init, --update, --dry-run, --force, --uninstall, --help';

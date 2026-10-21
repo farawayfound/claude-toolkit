@@ -1,29 +1,40 @@
 ---
 name: recon
-description: "Use at the start of work in an unfamiliar repository, or before planning a change in code you have not read: read-only reconnaissance (commands and baseline, code path to the side effect, bypasses, test conventions) by four parallel agents, or the same four passes in sequence, condensed into one brief."
-argument-hint: "[topic]"
+description: "Use first in any repository you have not read, with or without a task: read-only reconnaissance by four parallel agents (baseline, map of entrypoints and side effects, conventions, risk hotspots), written to .claude/plan/recon.md so /scope and the builder teammates read it instead of re-reading the code; ends by asking for the issues, constraints and ground rules."
+argument-hint: "[topic or issue, optional]"
 ---
 
 # Recon: $ARGUMENTS
 
-Read-only: no edits, installs, commits or branch switches. Never open .env or other secret files.
+Read-only on the code: no edits, installs, commits or branch switches; never open .env or other secret files. The one file this skill writes is `.claude/plan/recon.md` (step 3).
 
-Launch all four in ONE message so they run concurrently. Each brief is self-contained and asks for at most 15 lines with file:line evidence. Without subagents (no Agent tool, or a budget that forbids them), do the same four passes yourself in this order and keep the same output.
-1. **verifier** agent, background. Baseline at HEAD: resolve the format, lint, typecheck and test commands (each `confirmed-by-CI` or `unverified`), run each once, report the table and any pre-existing failures verbatim.
-2. **Explore** agent. Code path: trace "$ARGUMENTS" from its entrypoint (route, CLI command, tool handler, job) to the side effect (API call, DB write, file write) as numbered file:line steps. Name the single chokepoint where a check or fix belongs.
-3. **Explore** agent. Blast radius: every other path that reaches the same side effect without passing that chokepoint (bulk, delete, raw passthrough, background jobs, scripts); where identity, config and credentials are loaded, by file and variable name only, never values.
-4. **Explore** agent. Conventions: the closest existing tests to mirror (framework, fixtures, mocks, layout), `git log --oneline -15` commit style, and any README, CONTRIBUTING or AGENTS.md rule that binds a change here.
+## 1. Four agents in ONE message
+Each brief is self-contained and asks for at most 20 lines with file:line evidence. Without subagents (no Agent tool, or a budget that forbids them), do the same four passes yourself in this order. With agent teams on, launch these WITHOUT a `name`, so they stay subagents.
+1. **verifier** agent, background. Baseline at HEAD: resolve the install, format, lint, typecheck and test commands (each `confirmed-by-CI` or `unverified`), run every check once, report the table and any pre-existing failures verbatim.
+2. **Explore** agent. Map: every entrypoint (route, CLI command, job, handler) to its side effect (API call, DB write, file write) as `entry file:line -> step -> side effect file:line`; the modules and what imports what; external dependencies and the services or credentials they need (names only, never values). With a topic, trace it first and name the single chokepoint where a check or fix belongs.
+3. **Explore** agent. Conventions: the closest tests to mirror (framework, fixtures, mocks, layout), error and logging style, `git log --oneline -15` commit style, and any README, CONTRIBUTING, AGENTS.md or CI rule that binds a change.
+4. **Explore** agent. Hotspots: paths that reach a side effect without passing the usual check (bulk, delete, raw passthrough, background jobs, scripts); fail-open defaults, swallowed exceptions, missing timeouts, unbounded loops, TODO and FIXME, code with no test; where identity, config and credentials are loaded (file and variable name only).
 
-With no topic, agents 2 and 3 map the main entrypoints and their side effects instead. While they run, skim the top-level README yourself; do not wait idle. Re-check any surprising claim with one command before reporting it.
+While they run, skim the top-level README yourself; do not wait idle. Re-check any surprising claim with one command before writing it down.
 
-## Output: exactly these sections, at most 25 lines
+## 2. Condense
+At most 40 lines, every claim with file:line, nothing the README already says. Facts a builder needs, not prose.
+
+## 3. Write `.claude/plan/recon.md`
+`mkdir -p .claude/plan`; if `git check-ignore -q .claude/plan` fails, append `.claude/plan/` to the file `git rev-parse --git-path info/exclude` names. First line: `# Recon <repo> @ <git rev-parse --short HEAD> <date>`. Re-running replaces the file. Teammates never see this conversation: the file is what they read.
+
+## Output: the file, then the questions
 ```
-**Stack & commands**: <languages, frameworks, package manager>
-  test `<cmd>` (confirmed-by-CI|unverified); lint `<cmd>` (...); typecheck `<cmd>` (...); format `<cmd>` (...)
+**Stack & commands**: <languages, frameworks, package manager, how it runs>
+  install `<cmd>`; test `<cmd>` (confirmed-by-CI|unverified); lint `<cmd>`; typecheck `<cmd>`; format `<cmd>`
 **Baseline**: `<cmd>` exit <n>, <counts>; pre-existing failures: <verbatim | none | not verified: reason>
-**Code path**: 1. <file:line> <what happens> ... N. <file:line> <side effect>
-**Chokepoint & bypasses**: chokepoint <file:line>; bypasses: <file:line list | none found>
-**Risks & unknowns**: <identity source, shared credentials, missing tests, services needed>
-**Questions (max 3)**: 1. <question> (default if unanswered: <default>)
-**Smallest valuable change**: <one sentence>; next: /scope <task>
+**Map**: <entry file:line> -> <step> -> <side effect file:line>   (one line per entrypoint; the topic first)
+**Modules & dependencies**: <module: role, imported by>; external: <lib or service, used at file:line, needs <credential name>>
+**Conventions**: tests like <file>; errors <style>; logs <style>; commits <style>; binding rules <file: rule>
+**Hotspots**: <file:line, what and why it matters>   (bypasses, fail-open, no timeout, untested)
+**Chokepoint** (topic given): <file:line>; bypasses: <file:line list | none found>
+**Unknowns**: <services, data or identity sources needed before building>
 ```
+Then, in the conversation, these three questions and the line after them; no AskUserQuestion, the answers travel with the next command:
+1. Which issues or tasks are to be worked (paths such as `issues/*.md`, `#123`, or pasted text)? 2. Constraints (time, rates, must-nots, allowed dependencies)? 3. Ground rules (branching, commits, review, what done means)?
+`Next: /scope issues: <paths or text>; constraints: <...>; rules: <...>`   (map: `.claude/plan/recon.md`)

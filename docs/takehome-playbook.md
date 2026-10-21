@@ -18,12 +18,12 @@ For a 90-minute brief; scale the percentages for a longer one.
 | 90% | Docs and gate | `/tighten-docs`; write Decisions and AI use yourself; `/ship` until no FAIL | |
 | 100% | Submitted | the note from `/ship`; the repo link or `git archive` zip (never a zip of the folder itself: its `.git/dev-toolkit-logs/` holds your prompts and the guard's decisions) | |
 
-Slip rule: cut beyond-the-prompt items first, then scope, never verification. A beyond-the-prompt item is built only after `/break` says HELD with time left, capped at about 100 lines, and logged with `/decide` as your call. A half-done extra is worse than none; a listed, unbuilt extra reads as judgment.
+Slip rule: cut beyond-the-prompt items first, then scope, never verification. A beyond-the-prompt item is built only after `/break` says HELD with time left, capped at about 100 lines, and logged in the ledger as your call. A half-done extra is worse than none; a listed, unbuilt extra reads as judgment.
 
 ## 2 · First ten minutes
 
 1. Read the brief twice. Quote every requirement; the plan carries them as `R1`, `R2`, ... and the tests cite them.
-2. Answer the open questions the brief leaves (language, installs allowed, submission channel) with `/decide` rows by `me`.
+2. Answer the open questions the brief leaves (language, installs allowed, submission channel) as ledger rows by `me` (`/takehome-init` writes them when you answer).
 3. `/scope`: when it offers options, choose; when it asks a question, answer or take the recommended default and say so. The ledger is being written now.
 4. Draw the fence out loud: "In the prompt: workflow, output file, two tests, README. Beyond: a GUI, a live model, export." Then do not look at the second list until 60%.
 
@@ -33,7 +33,7 @@ Slip rule: cut beyond-the-prompt items first, then scope, never verification. A 
 - One slice end to end before any breadth: input file to output file with the happy path only, then the gates, then the error paths.
 - Commits tell the story: one per slice, imperative subject, no WIP, no "scaffold", no "remove old code". Nothing of yours is in the first commit except the brief and the provided files.
 - No starter kit, no copied helpers, no framework the brief did not ask for. When you bring one file in, it gets a ledger row naming where it came from.
-- Every decision as it happens: `/decide "a failed client call marks the row failed and the batch continues" by: me`. Agent defaults you accept are `agent (accepted)`; the ones you overrule are `agent (changed)`. These rows are the proof later.
+- Every decision as it happens, as a row in `docs/decisions.md` (the plan under `.claude/plan/` carries the same table; `/scope` writes both). Agent defaults you accept are `agent (accepted)`; the ones you overrule, `agent (changed)`.
 
 ## 4 · Hardening (the step the last submission skipped)
 

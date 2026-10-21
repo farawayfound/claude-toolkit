@@ -3,9 +3,9 @@ CLAUDE.local.md (generated) lists the detected commands; confirm them against CI
 The skills and agents named here are optional parts; when one is missing, do that step by hand and say so.
 
 ## Loop
-- Unfamiliar code: /recon, then /scope and wait for approval, then a failing test first (the test-writer agent; /repro-fix for a bug), the smallest diff that passes, /check (long suites: the verifier agent in the background), then the reviewer agent on the diff (/break puts breaker agents on the real entrypoints; /gate is the eight-lens review), then ask the user to run /pr-brief.
-- Take-home: /takehome-init, /scope, the thin slice, /break, /deslop, /tighten-docs, /ship. Slowness or queueing: /perf-baseline, with numbers before and after. Who may change what: /access-control. Several issues at once: /parallel, one worktree each.
-- Every decision goes to /decide as it happens, with who made it: me, agent (accepted) or agent (changed).
+- Unfamiliar code: /recon (no brief needed; it ends by asking for the issues, constraints and rules), then /scope with the answers: one plan file per issue under .claude/plan/, ranked by fix velocity; wait for approval. Then /team build (a builder teammate per plan in its own worktree and branch, plus qa), or for one plan here: a failing test first (the test-writer agent; /repro-fix for a bug), the smallest diff that passes, /check (long suites: the verifier agent in the background), /deslop on the diff, the reviewer agent (/break puts breaker agents on the real entrypoints; /gate is the eight-lens review), then ask the user to run /pr-brief per branch.
+- Take-home: /takehome-init, /scope, the thin slice, /break, /deslop, /tighten-docs, /ship. Slowness or queueing: /perf-baseline, with numbers before and after. Who may change what: /access-control. Several issues in separate sessions: /parallel, one worktree each.
+- Decisions are written where they happen, not announced: the plan's Decisions table (and docs/decisions.md when it exists), with who made the call: me, agent (accepted) or agent (changed).
 - Never claim a pass you did not see; quote the command and its exit code. A check that cannot run: `not verified: <reason>`.
 - Never skip, xfail, weaken or delete a test, and never change lint, format or type config, to get green.
 
@@ -13,7 +13,7 @@ The skills and agents named here are optional parts; when one is missing, do tha
 - Independent subagents launch in ONE message; keep working while they run. Every brief is self-contained: goal, paths, constraints, done-when, return format (at most 15 lines, file:line evidence).
 - Read-only work fans out freely. Parallel writers only on disjoint files; otherwise a worktree per task. A subagent's report is a claim until you re-run its decisive command.
 - Never edit source while its failing test is being written: RED is observed before the fix.
-- With agent teams on, a named agent is a teammate: a full session with its own cost. Fan-out reads stay unnamed subagents; teams only through /team (review lenses, disjoint-file builds, competing hypotheses), and a teammate's claim is still a claim.
+- With agent teams on, an Agent call with a name is a teammate: a full session with its own cost. Fan-out reads stay unnamed subagents; teams only through /team (builder and qa per plan, review lenses, competing hypotheses), and a teammate's claim is still a claim.
 
 ## Code
 - The shortest correct, idiomatic change in the surrounding style. Stdlib and existing helpers first; no new dependencies.

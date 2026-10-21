@@ -18,14 +18,9 @@ Answer its questions (language, installs allowed, how to submit); each answer la
 ```
 When it offers options (for example "status for a client exception: failed | retry_later | abort the batch"), pick one and say why in a line; it becomes a ledger row by `me`.
 
-**Record a call you made mid-build.** Run in: Claude Code.
+**Record a call you made mid-build.** Run in: Claude Code. There is no command: say it, and it goes into the plan's Decisions table (and `docs/decisions.md` in a take-home).
 ```
-/decide "[Validation runs before any client call; a rejected row never reaches the client]" by: me. Alternatives: [validate lazily at call time]. Why: [a bad row must not cost a call or leak through a later step].
-```
-
-**Record an agent default you accepted.** Run in: Claude Code.
-```
-/decide "[report.json is an object {source, counts, rows[]}, not a bare list]" by: agent (accepted)
+Decision, mine: [validation runs before any client call; a rejected row never reaches the client]. Alternative rejected: [validate lazily at call time]. Why: [a bad row must not cost a call or leak through a later step]. Record it.
 ```
 
 **Harden after the thin slice is green.** Run in: Claude Code.
