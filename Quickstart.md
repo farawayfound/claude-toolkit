@@ -27,8 +27,9 @@ Keep the clone outside the repos you work in; the installer refuses a target tha
 ```
 cd [path to your project]
 node "$HOME/claude-toolkit/install.mjs"
-claude
 ```
+
+The installer asks which set to place, and when the parts are in it offers the **team terminal**: psmux on Windows (tmux for Windows, native) or tmux elsewhere, attached in the terminal you are in, with `claude` started in its first pane; every teammate then opens as a pane of its own. Enter accepts. When psmux or tmux is not installed yet it offers to install it (Windows: psmux, PowerShell 7 and the Claude Code CLI through winget, per user, no admin; it takes a minute). `--panes` says yes to both without asking, `--no-panes` skips it, and later, when you come back to the project, `node "$HOME/claude-toolkit/team.mjs"` in its folder only opens it. Without the team terminal, start `claude` yourself in the project's folder; teammates then run in-process. Run it in a Windows console (Windows Terminal, PowerShell, VS Code's terminal), not Git Bash: psmux needs one.
 
 The installer asks which set to place. A folder that is not a git repository yet gets a question first: make it one (`git init` and a baseline commit of its files), or stop; `--init` answers yes up front. A folder inside a bigger repository is asked whether to install at that repository's root (Enter) or to become a repository of its own. Every run prints the clone it ran from and the folder to start `claude` in.
 
@@ -121,17 +122,19 @@ They run in their own context, so several can work at once and none sees the mai
 | `builder` | Teammate: builds one plan from `.claude/plan/` in its own worktree and branch, RED first, QA hand-off, PR brief | The plan's files only |
 | `qa` | Teammate: re-runs checks per worktree, adversarial inputs through the real entrypoints, regression tests for confirmed gaps, grades the tests | Test files only |
 
-## 4b. Teammates in panes (tmux)
+## 4b. Teammates in panes
 
-Split-pane teams need a tmux: real tmux on macOS and Linux, and on Windows **psmux** (tmux for Windows, native, no WSL), which Claude Code drives the same way. One command sets either up:
+Each teammate in its own pane needs a tmux: real tmux on macOS and Linux, **psmux** (tmux for Windows, native, no WSL) on Windows; Claude Code drives both the same way. Step 2 sets it up and opens it; these are the pieces behind that, for when you want them by hand:
 
-| OS | Run in | Command |
+| Want | Run in | Command |
 |---|---|---|
-| Windows | Terminal (normal, no admin needed), in the toolkit folder | `.\tmux.cmd`: psmux and PowerShell 7 through winget (per user), the Claude Code CLI, `~/.psmux.conf`, `teammateMode: "auto"` |
-| macOS or Linux | Terminal | `bash "$HOME/claude-toolkit/setup/tmux.sh"`: tmux, Node 18+, git, Claude Code, `~/.tmux.conf`, `teammateMode: "auto"` |
-| Windows, afterwards | Terminal, in the toolkit folder | `.\tmux.cmd -Open [path to your project]`: Windows Terminal with a psmux session in the project on the left half of the screen, VS Code on the right |
+| The team terminal again, for a project that already has the toolkit (claude in the first pane, teammates in panes; an open session is reattached) | A Windows console or any macOS/Linux terminal, in your project's folder | `node "$HOME/claude-toolkit/team.mjs"` |
+| Two windows: psmux on the left half of the screen, VS Code on the right | PowerShell, in your project's folder | `& "$HOME/claude-toolkit/tmux.cmd" -Open .` |
+| The Windows setup alone (psmux, PowerShell 7, the Claude Code CLI, `~/.psmux.conf`, `teammateMode: "auto"`) or its status | PowerShell, any folder | `& "$HOME/claude-toolkit/tmux.cmd"`; status: `& "$HOME/claude-toolkit/tmux.cmd" -Check`. In cmd: `"%USERPROFILE%\claude-toolkit\tmux.cmd"` |
+| The macOS or Linux setup alone (tmux, Node 18+, git, Claude Code, `~/.tmux.conf`, `teammateMode: "auto"`) | Terminal | `bash "$HOME/claude-toolkit/setup/tmux.sh"`; status: add `--check` |
+| A session by hand | inside a Windows console or terminal, in your project's folder | `tmux new-session -A -s [name]`, then `claude` (open a new terminal first if `tmux` is not found right after the setup) |
 
-Inside the pane, the usual lines: `node "$HOME/claude-toolkit/install.mjs" --set live` once per repo, then `claude`, `/recon`, `/scope ...`, `/team build`. Each teammate opens as a pane with its name in the border (`tmux list-panes` lists them); click into one to talk to it, and the pane closes when the teammate shuts down. `setup/tmux/psmux.conf` and `setup/tmux/tmux.conf` hold the pane and status settings; `.\tmux.cmd -Check` and `bash setup/tmux.sh --check` print the status table. `teammateMode: "auto"` means panes only inside a tmux session; in VS Code or a plain terminal the team stays in-process.
+Inside the session: `claude`, `/recon`, `/scope ...`, `/team build`. Each teammate opens as a pane with its name in the border (`tmux list-panes` lists them); click into one to talk to it, and the pane closes when the teammate shuts down. Detach with Ctrl+b then d; the session keeps running and `--panes` reattaches. `setup/tmux/psmux.conf` and `setup/tmux/tmux.conf` hold the pane and status settings. `teammateMode: "auto"` means panes only inside a session; in VS Code's chat or a plain terminal the team stays in-process, listed under the prompt.
 
 ## 5. Habits that make it work
 

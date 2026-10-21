@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // install.mjs: one set of the toolkit into one checkout, from any terminal on Windows, macOS or Linux (logic: dropin.mjs). install.sh and install.cmd forward here.
-//   node "$HOME/claude-toolkit/install.mjs" [set ...] [--set NAME] [--target DIR] [--gate] [--init] [--update] [--dry-run] [--force] [--uninstall]
+//   node "$HOME/claude-toolkit/install.mjs" [set ...] [--set NAME] [--target DIR] [--gate] [--init] [--update] [--panes | --no-panes] [--dry-run] [--force] [--uninstall]
 // Without a set it asks which one (Enter = full); when input is not a terminal it places full. The menu sets are full, live, takehome and
 // unbound; any set or part from `node dropin.mjs list` works too, and several names add up. Re-running with another set only adds.
 // Flags take one or two dashes in any case, PowerShell spelling included (-Set live, -Target D:\x, -DryRun, -WhatIf), and --name=value.
@@ -9,6 +9,10 @@
 //   --init       the target is not the root of a git repository: git init there and commit its files as a baseline (asked when interactive)
 //   --update     git pull --ff-only in this clone first, then install from the updated files
 //   --uninstall  removes everything this tool placed (or only the names given)
+//   --panes      after the install, open the team terminal here without asking: psmux (Windows) or tmux attached in this terminal, claude
+//                started in its first pane, every teammate in a pane of its own. Missing psmux or tmux is installed first (setup/tmux.ps1,
+//                setup/tmux.sh). Interactive runs are asked instead; --no-panes skips the step. Alone, in a repo already set up, it only opens
+//                (team.mjs is that one line: node "$HOME/claude-toolkit/team.mjs").
 // The docs write the clone as "$HOME/claude-toolkit", never ~/claude-toolkit: Windows PowerShell hands ~ to git and node unexpanded, so
 // `git clone ... ~/claude-toolkit` there clones into a folder literally named ~ inside the current one. This script refuses to run from such
 // a folder and prints the fix.
@@ -22,8 +26,8 @@ const MENU = [['full', 'every part except the opt-in Stop gate'],
   ['live', "60-90 minute session on someone else's code: recon, scope (a plan per issue), team build, repro-fix, check, deslop, pr-brief; five agents; prompt log"],
   ['takehome', 'timed challenge, 90 minutes to 3 hours: takehome-init, scope, check, break, deslop, tighten-docs, ship, team; six agents; prompt log'],
   ['unbound', 'no time limit: everything general-purpose, including parallel and the /gate review']];
-const FLAGS = { set: 'set', target: 'target', repo: 'target', gate: 'gate', init: 'init', update: 'update', dryrun: 'dry', whatif: 'dry', force: 'force', uninstall: 'uninstall', help: 'help', h: 'help', '?': 'help' };
-const OPTIONS = '--set NAME, --target DIR, --gate, --init, --update, --dry-run, --force, --uninstall, --help';
+const FLAGS = { set: 'set', target: 'target', repo: 'target', gate: 'gate', init: 'init', update: 'update', panes: 'panes', nopanes: 'nopanes', dryrun: 'dry', whatif: 'dry', force: 'force', uninstall: 'uninstall', help: 'help', h: 'help', '?': 'help' };
+const OPTIONS = '--set NAME, --target DIR, --gate, --init, --update, --panes, --no-panes, --dry-run, --force, --uninstall, --help';
 const fwd = (p) => p.replace(/\\/g, '/');
 const die = (code, msg) => { console.error(`ERROR: ${msg}`); process.exit(code); };
 function git(args, cwd) {
@@ -82,6 +86,8 @@ const dir = path.resolve(F.target || '.'); if (!fs.existsSync(dir) || !fs.statSy
 if (git(['--version']).code !== 0) die(3, `git not found: install it (${WIN ? 'winget install Git.Git' : process.platform === 'darwin' ? 'xcode-select --install' : 'your package manager'}), then open a new terminal`);
 if (within(TK, dir) && !F.force) die(2, `the toolkit (${fwd(TK)}) is inside the target ${fwd(dir)}. Run this from your project's folder, with the toolkit cloned outside it: git clone ${URL} "$HOME/claude-toolkit"`);
 const prefix = git(['rev-parse', '--show-prefix'], dir); const isRepo = prefix.code === 0; let init = !!F.init && !(isRepo && prefix.out === '');
+const placed = isRepo && fs.existsSync(path.resolve(dir, git(['rev-parse', '--git-path', 'dev-toolkit.json'], dir).out || 'none')); // the manifest: this checkout already has the toolkit
+if (F.panes && !F.names.length && !F.gate && !F.uninstall && !placed) die(2, `${fwd(dir)} has no toolkit yet: run node "${fwd(TK)}/install.mjs" there first (it ends by opening the team terminal); --panes alone only opens it`);
 const leftover = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && HOMEISH.test(e.name)).map((e) => path.join(dir, e.name))[0];
 const leftMsg = leftover && `${fwd(leftover)} looks like a clone made with ~ unexpanded. Delete it by its full path (never a bare ~):\n${rmLines(leftover)}`;
 const refuseLeftover = () => leftover && die(2, `${leftMsg}\n  then run this again: a baseline commit would take it in as an embedded repository.`);
@@ -103,9 +109,9 @@ if (init) {
   console.log(`  init      ${fwd(dir)}: git init and a baseline commit of ${git(['ls-files'], dir).out.split('\n').filter(Boolean).length} files`);
 }
 
-// ---- which set
+// ---- which set (--panes alone, in a repo that already has the toolkit, installs nothing and only opens the team terminal)
 let names = F.names;
-if (!names.length && !F.uninstall) {
+if (!names.length && !F.uninstall && !(F.panes && placed)) {
   names = ['full'];
   if (process.stdin.isTTY) {
     console.log('Which set?'); MENU.forEach(([s, w], i) => console.log(`  ${i + 1}  ${s.padEnd(9)} ${w}`));
@@ -117,4 +123,42 @@ if (F.gate && !F.uninstall) names.push('gate');
 
 const rev = git(['log', '-1', '--format=%h %cs', '--', '.'], TK).out; console.log(`toolkit   ${fwd(TK)}${rev ? ` (${rev})` : ''}`);
 const t = target({ dir, dry: F.dry, force: F.force });
-if (F.uninstall) { removeParts(t, names.length ? names : ['all']); finish(t, true); } else { await add(t, names); finish(t); }
+if (F.uninstall) { removeParts(t, names.length ? names : ['all']); finish(t, true); } else if (names.length) { await add(t, names); finish(t); } else console.log(`nothing to place: ${t.label} already has the toolkit`);
+
+// ---- the team terminal: psmux on Windows, tmux elsewhere, attached in this terminal with claude started in its first pane, so the parts
+// just placed load and every teammate opens as a pane (the session sets TMUX, and claude gets --teammate-mode tmux). Asked on a terminal;
+// --panes says yes without asking (and installs a missing psmux or tmux first), --no-panes skips it; a pipe only prints the lines.
+const MUXNAME = WIN ? 'psmux (tmux for Windows)' : 'tmux';
+const SETUP = WIN ? `& "${fwd(TK)}/tmux.cmd"   (PowerShell or Windows Terminal; cmd: "${fwd(TK)}/tmux.cmd")` : `bash "${fwd(TK)}/setup/tmux.sh"`;
+const LATER = `node "${fwd(TK)}/install.mjs" --panes   (in your project's folder)${WIN ? `; two windows, psmux left and VS Code right: & "${fwd(TK)}/tmux.cmd" -Open .` : ''}`;
+function findMux() { // the tmux binary: PATH first, then where winget puts psmux, because a terminal opened before the install still has the old PATH
+  const names = WIN ? ['tmux.exe', 'psmux.exe'] : ['tmux']; const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  const la = WIN && process.env.LOCALAPPDATA; const pk = la && path.join(la, 'Microsoft', 'WinGet', 'Packages');
+  if (la) dirs.push(path.join(la, 'Microsoft', 'WinGet', 'Links'), ...(fs.existsSync(pk) ? fs.readdirSync(pk).filter((d) => /psmux/i.test(d)).map((d) => path.join(pk, d)) : []));
+  for (const d of dirs) for (const n of names) { const p = path.join(d, n); if (fs.existsSync(p)) return p; }
+  return null;
+}
+async function teamTerminal() {
+  if (F.nopanes || F.dry || F.uninstall) return;
+  const tty = !!process.stdin.isTTY; const mintty = WIN && (process.env.TERM_PROGRAM === 'mintty' || (!!process.env.MSYSTEM && !process.env.WT_SESSION && process.env.TERM_PROGRAM !== 'vscode'));
+  if (process.env.TMUX) return console.log(`Team terminal: already inside ${MUXNAME}; type claude here`);
+  let bin = findMux();
+  if (!bin && (!tty || mintty)) return console.log(`Team terminal (teammates in panes): install ${MUXNAME} once with\n  ${SETUP}\n  then ${LATER}`);
+  if (!bin) {
+    const yes = F.panes || /^(y|yes)$/i.test(await ask(`Team terminal: ${MUXNAME} is not installed. Install it now${WIN ? ' with winget (psmux, PowerShell 7, the Claude Code CLI; per user, no admin)' : ' with your package manager (tmux, Node, the Claude Code CLI)'}? [y/N] `));
+    if (!yes) return console.log(`  later: ${SETUP}\n  then ${LATER}`);
+    const r = WIN ? spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(TK, 'setup', 'tmux.ps1')], { stdio: 'inherit' }) : spawnSync('bash', [path.join(TK, 'setup', 'tmux.sh')], { stdio: 'inherit' });
+    bin = findMux(); if (r.status !== 0 || !bin) return console.log(`  the setup did not finish (exit ${r.status}): see its table above, then ${LATER}`);
+  }
+  if (!tty || mintty) return console.log(`Team terminal: ${fwd(bin)} found. ${mintty ? 'psmux needs a Windows console (Windows Terminal, PowerShell, cmd or the VS Code terminal), not Git Bash; there, ' : 'Open it with '}${LATER}`);
+  if (!F.panes && !/^(y|yes)?$/i.test(await ask(`Open the team terminal here and start claude in ${fwd(dir)}? [Y/n] `))) return console.log(`  later: ${LATER}`);
+  const name = path.basename(dir).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'team';
+  const run = (a) => spawnSync(bin, a, { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] });
+  if (run(['has-session', '-t', name]).status !== 0) {
+    const ns = run(['new-session', '-d', '-s', name, '-c', dir]); if (ns.status !== 0) return console.log(`  could not start ${fwd(bin)}: ${(ns.stderr || ns.stdout || '').trim()}`);
+    run(['send-keys', '-t', name, 'claude --teammate-mode tmux', 'Enter']);
+  } else console.log(`  session ${name} already exists: attaching`);
+  console.log(`Team terminal: session ${name} in ${fwd(dir)}. claude starts in the first pane; each teammate opens as a pane (click into it to talk to it). Detach: Ctrl+b then d. Later: ${LATER}`);
+  const at = spawnSync(bin, ['attach-session', '-t', name], { cwd: dir, stdio: 'inherit' }); process.exit(at.status ?? 0);
+}
+await teamTerminal();

@@ -2,7 +2,8 @@
 tmux.ps1 - teammates in their own panes on Windows, natively: psmux (tmux for Windows, ConPTY, no WSL), PowerShell 7 for its panes,
 the Claude Code CLI, ~/.psmux.conf from setup/tmux/psmux.conf, and teammateMode "auto" in ~/.claude/settings.json (split panes inside
 psmux, in-process everywhere else). Verified: Claude Code 2.1.305 + psmux 3.4.0 put each teammate in its own pane (TmuxBackend).
-Run it through tmux.cmd from a normal terminal; nothing here needs admin (winget installs psmux and pwsh per user).
+Run it through tmux.cmd from a normal terminal, from any folder: & "$HOME\claude-toolkit\tmux.cmd" in PowerShell, "%USERPROFILE%\claude-toolkit\tmux.cmd"
+in cmd. install.mjs runs it for you when it offers the team terminal and psmux is missing. Nothing here needs admin.
   .\tmux.cmd                 install what is missing, then print the status table
   .\tmux.cmd -Check          report only, installs nothing
   .\tmux.cmd -WhatIf         dry run (alias -DryRun)

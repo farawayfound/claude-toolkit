@@ -16,10 +16,10 @@ Two layers, each a script at the toolkit root. The parts themselves are document
 2. Open a new terminal, then `.\bootstrap.cmd -Check` until every core row is OK
 3. `claude` (browser login once, then type `/exit` at its prompt)
 4. `.\selftest.ps1 -Quick` (no FAIL; the `~/.claude` rows SKIP when no user layer exists, which is expected)
-5. Per repo, from its folder, in any terminal: `node "$HOME/claude-toolkit/install.mjs"` (it asks which set, and offers `git init` when the folder is not a repository yet; `--set live` skips the question). Parts on top: `node "$HOME/claude-toolkit/install.mjs" [part] [another part]`.
+5. Per repo, from its folder, in a Windows console (Windows Terminal, PowerShell, VS Code's terminal): `node "$HOME/claude-toolkit/install.mjs"` (it asks which set, offers `git init` when the folder is not a repository yet, and ends by offering the team terminal: psmux with `claude` in its first pane, teammates in panes; `--set live` and `--panes` skip the questions). Parts on top: `node "$HOME/claude-toolkit/install.mjs" [part] [another part]`.
 6. Optional, per repo: the plugins the house rules mention, scoped to that repo only: `claude plugin install commit-commands@anthropic-plugin-directory --scope local` and the same for `pr-review-toolkit`. Without them the `reviewer` agent covers review.
 7. Optional: `.\selftest.ps1 -Live` (real headless probes, a few cents).
-8. Optional, teammates in their own panes: `.\tmux.cmd` (psmux, PowerShell 7, the Claude Code CLI; no admin, no WSL), then `.\tmux.cmd -Open [path to your project]`. In the pane the repo line is unchanged: `node "$HOME/claude-toolkit/install.mjs" --set live`.
+8. Optional: `.\tmux.cmd -Open [path to your project]` for two windows, psmux on the left half of the screen and VS Code on the right (`.\tmux.cmd` alone runs or checks the psmux setup that step 5 offers).
 
 ## What lands where
 | Part | Lands in |
@@ -57,7 +57,7 @@ Backups: the first settings change in a repo backs up `.claude/settings.local.js
 | `--target [dir]` (`-Target`, or the folder as a plain word), default: current dir | `-Quick`: skip toolchain runs |
 | No set: asks which set (full, live, takehome, unbound); with input redirected, `full` (every part except the opt-in Stop gate; with the opt-in user layer, only what that layer lacks) | `-Live`: real headless claude probes |
 | `--set [name]` (`-Set`, or the name as a plain word; several add up): that set, or any set or part name, without asking (`repo`, `safety`, `all` included) | `-Keep`: keep and print the sample repos |
-| `--gate`: the opt-in Stop gate on top; `--init`: `git init` and a baseline commit when the folder is not a repository root; `--update`: `git pull` the clone first | `-Banned "[csv]"`: whole-word scan of every file |
+| `--panes`: after the install, the team terminal (psmux on Windows, tmux elsewhere; installed first when missing) attached here with claude in its first pane, no question asked; `--no-panes`: skip it; on a terminal without either flag it asks. Coming back to a project: `node "$HOME/claude-toolkit/team.mjs"` only opens the terminal. `--gate`: the opt-in Stop gate on top; `--init`: `git init` and a baseline commit when the folder is not a repository root; `--update`: `git pull` the clone first | `-Banned "[csv]"`: whole-word scan of every file |
 | `--dry-run` (`-DryRun`, `-WhatIf`), `--uninstall` (= `dropin remove all`), `--force`; one or two dashes, any case | |
 | exit 0 ok, 1 leak/failure, 2 usage/not a repo/refused, 3 no node, node before 18, or no git | exit 0 no FAIL, 1 any FAIL, 3 no node |
 
