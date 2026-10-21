@@ -81,10 +81,10 @@ const sBad = fmBad(SK, skills, (n) => `${n}/SKILL.md`, SKEYS); ok('A2', `skill f
 const aBad = fmBad(AG, agents, (n) => `${n}.md`, AKEYS); ok('A3', `agent frontmatter (${agents.length} agents)`, agents.length === byKind('agent').length && !aBad.length, aBad.join('; ') || `found ${agents.length}`);
 const rBad = rules.filter((r) => { const p = fm(read(path.join(RU, r)))?.paths; return !Array.isArray(p) || !p.length || p.some((x) => typeof x !== 'string'); });
 ok('A4', `rule paths are YAML lists of strings (${rules.length} rules)`, rules.length >= 5 && !rBad.length, rBad.join(', ') || `found ${rules.length}`);
-const budget = [['modules/house-rules/CLAUDE.md', 60], ...rules.map((r) => [`modules/rules/${r}`, 45]), ...skills.map((s) => [`modules/skills/${s}/SKILL.md`, 90]),
+const budget = [['modules/house-rules/CLAUDE.md', 60], ['modules/worksheet/worksheet.md', 70], ...rules.map((r) => [`modules/rules/${r}`, 45]), ...skills.map((s) => [`modules/skills/${s}/SKILL.md`, 90]),
   ...hookSrc.map(([n, f]) => [`modules/${n}/${f}`, 70]), ...agents.map((a) => [`modules/agents/${a}.md`, 40])];
 const over = budget.filter(([f, n]) => !exists(path.join(TK, f)) || nlines(path.join(TK, f)) > n).map(([f, n]) => `${f} ${exists(path.join(TK, f)) ? nlines(path.join(TK, f)) : 'missing'}>${n}`);
-ok('A5', 'line budgets (CLAUDE.md 60, rules 45, skills 90, hooks 70, agents 40)', !over.length, over.join(', '));
+ok('A5', 'line budgets (CLAUDE.md 60, worksheet 70, rules 45, skills 90, hooks 70, agents 40)', !over.length, over.join(', '));
 const all = walk(TK); const crBad = all.filter((f) => (/\.(mjs|md|json|sh|example)$/.test(f) || /^modules\/skills\/[^/]+\/scripts\/[^./]+$/.test(f)) && read(path.join(TK, f)).includes('\r'));
 const asciiBad = all.filter((f) => /\.(ps1|cmd)$/.test(f) && /[^\x00-\x7F]/.test(read(path.join(TK, f))));
 ok('A6', 'no CR in .mjs/.md/.json/.sh; .ps1/.cmd are ASCII', !crBad.length && !asciiBad.length, `CR: ${crBad.join(', ')} non-ASCII: ${asciiBad.join(', ')}`);
@@ -110,7 +110,7 @@ else {
   ok('A13', `banned-term scan (${BANNED.length} terms, ${screen.length} files that the mirror installs)`, !hits.length, hits.slice(0, 12).join(', '));
 }
 const catBad = [...Object.entries(INDEX).flatMap(([n, p]) => { // every catalog entry has its files; every file has an entry; requires exist
-  const need = p.kind === 'skill' ? [`skills/${n}/SKILL.md`] : p.kind === 'agent' ? [`agents/${n}.md`] : p.kind === 'rule' ? [`rules/${n}.md`] : ['hook', 'workflow'].includes(p.kind) ? (p.files || ['?']).map((f) => `${n}/${f}`) : p.kind === 'claude' ? [`${n}/CLAUDE.md`] : p.kind === 'settings' ? [`${n}/settings.json`] : ['?'];
+  const need = p.kind === 'skill' ? [`skills/${n}/SKILL.md`] : p.kind === 'agent' ? [`agents/${n}.md`] : p.kind === 'rule' ? [`rules/${n}.md`] : ['hook', 'workflow', 'worksheet'].includes(p.kind) ? (p.files || ['?']).map((f) => `${n}/${f}`) : p.kind === 'claude' ? [`${n}/CLAUDE.md`] : p.kind === 'settings' ? [`${n}/settings.json`] : ['?'];
   return [...need.filter((f) => !exists(path.join(MOD, f))).map((f) => `${n}: missing ${f}`), ...(p.requires || []).filter((r) => !INDEX[r]).map((r) => `${n}: requires unknown ${r}`), ...(p.what ? [] : [`${n}: no what`])]; }),
   ...skills.filter((s) => INDEX[s]?.kind !== 'skill').map((s) => `skill ${s} not in index`), ...agents.filter((a) => INDEX[a]?.kind !== 'agent').map((a) => `agent ${a} not in index`), ...rules.filter((r) => INDEX[r.slice(0, -3)]?.kind !== 'rule').map((r) => `rule ${r} not in index`)];
 ok('A14', `catalog matches the module files (${Object.keys(INDEX).length} parts)`, Object.keys(INDEX).length >= 20 && !catBad.length, catBad.join('; '));
@@ -191,7 +191,7 @@ const placed = [...skills.filter((s) => !INDEX[s].optIn).map((s) => `skills/${s}
 const gMiss = placed.filter((p) => !exists(path.join(GH, '.claude', p))); ok('E1.3', 'skills, agents, hooks, dev-toolkit mirror, CLAUDE.md block present', !gMiss.length && readIf(path.join(GH, '.claude/CLAUDE.md')).includes('<!-- dev-toolkit:begin -->'), `missing: ${gMiss.join(', ')}`);
 const gcmd = settingsCmds(gs).find(([ev, c]) => ev === 'PreToolUse' && /guard\.mjs/.test(c))?.[1] || '';
 ok('E1.4', 'guard hook rendered with an absolute path that exists', gcmd && !gcmd.includes('__HOOKS_DIR__') && exists(scriptOf(gcmd) || ''), gcmd || 'no guard entry');
-ok('E1.5', 'gate hooks are not registered globally; no rules in ~/.claude', !settingsCmds(gs).some(([, c]) => /gate\.mjs/.test(c)) && !exists(path.join(GH, '.claude/rules')), 'gate.mjs in ~/.claude/settings.json, or ~/.claude/rules exists');
+ok('E1.5', 'gate hooks are not registered globally; no rules or worksheet in ~/.claude', !settingsCmds(gs).some(([, c]) => /gate\.mjs/.test(c)) && !exists(path.join(GH, '.claude/rules')) && !exists(path.join(GH, '.claude/worksheet.md')), 'gate.mjs in ~/.claude/settings.json, or ~/.claude/rules or worksheet.md exists');
 const h1 = treeHash(path.join(GH, '.claude')); const g2 = sh('node', [INST, 'global', '--plugins', 'none', '--home', GH]);
 ok('E1.6', 'second global install is idempotent', g2.code === 0 && treeHash(path.join(GH, '.claude')) === h1, tail(g2));
 
@@ -259,7 +259,7 @@ const clean = (d) => !readIf(gitPath(d, 'info/exclude')).includes('dev-toolkit')
 ok('C13', '--uninstall restores porcelain, B user text, exclude file', ua.code === 0 && up.code === 0 && porc(A) === sA && porc(P) === sP && clean(A) && clean(P) && !exists(path.join(A, 'CLAUDE.local.md')) && !exists(path.join(A, '.claude')) && !exists(path.join(P, '.claude'))
   && (!ub || (ub.code === 0 && porc(B) === sB && read(path.join(B, 'CLAUDE.local.md')) === untrackedB['CLAUDE.local.md'] && clean(B))), `${tail(ua, 1)} ${ub ? tail(ub, 1) : ''} ${tail(up, 1)}`);
 const setRuns = Object.keys(SETS).map((s) => [s, drop(['add', s, '--repo', A, '--dry-run'], env)]); const liveOut = setRuns.find(([s]) => s === 'live')?.[1].out || '';
-ok('C14', `every named set dry-runs (${Object.keys(SETS).join(', ')}); live places reviewer, builder, qa, team, deslop and trail but no break, parallel, decide or gate workflow`, setRuns.every(([, r]) => r.code === 0) && porc(A) === sA && !exists(gitPath(A, 'dev-toolkit.json')) && /reviewer/.test(liveOut) && /agents\/builder\.md/.test(liveOut) && /agents\/qa\.md/.test(liveOut) && /skills\/team\//.test(liveOut) && /skills\/deslop\//.test(liveOut) && /trail\.mjs/.test(liveOut) && !/skills\/(break|parallel|decide)\/|gate\.js/.test(liveOut), setRuns.filter(([, r]) => r.code !== 0).map(([s, r]) => `${s}: ${tail(r, 1)}`).join('; ') || liveOut.split('\n')[0]);
+ok('C14', `every named set dry-runs (${Object.keys(SETS).join(', ')}); live places reviewer, builder, qa, team, deslop and trail but no break, parallel, decide or gate workflow; every set but safety places .claude/worksheet.md`, setRuns.every(([, r]) => r.code === 0) && setRuns.filter(([s]) => s !== 'safety').every(([, r]) => /\.claude\/worksheet\.md/.test(r.out)) && !/worksheet/.test(setRuns.find(([s]) => s === 'safety')?.[1].out || '') && porc(A) === sA &&!exists(gitPath(A, 'dev-toolkit.json')) && /reviewer/.test(liveOut) && /agents\/builder\.md/.test(liveOut) && /agents\/qa\.md/.test(liveOut) && /skills\/team\//.test(liveOut) && /skills\/deslop\//.test(liveOut) && /trail\.mjs/.test(liveOut) && !/skills\/(break|parallel|decide)\/|gate\.js/.test(liveOut), setRuns.filter(([, r]) => r.code !== 0).map(([s, r]) => `${s}: ${tail(r, 1)}`).join('; ') || liveOut.split('\n')[0]);
 const TT = path.join(TMP, 'tilde-proj', '~', 'claude-toolkit'); fs.mkdirSync(TT, { recursive: true }); fs.copyFileSync(INSTALL, path.join(TT, 'install.mjs')); // what `git clone ... ~/claude-toolkit` makes in Windows PowerShell
 const tt = sh('node', [path.join(TT, 'install.mjs'), '-Set', 'repo', '-Target', A], { env }); const ti = sh('node', [INSTALL, '-Set', 'repo', '-Init', '-Target', path.join(TMP, 'tilde-proj')], { env });
 ok('C15', 'a clone inside a folder literally named ~: install.mjs there exits 2 with the "$HOME/claude-toolkit" fix and the folder by full path; -Init beside it refuses to commit it', tt.code === 2 && tt.err.includes('"$HOME/claude-toolkit"') && tt.err.includes(`'${fwd(path.dirname(TT))}'`) && porc(A) === sA
@@ -296,6 +296,18 @@ const U = path.join(TMP, 'user-home'); const g11 = drop(['add', 'recon', '--user
 ok('G5', 'add/remove one skill --user: file placed, no settings file created, home left empty', g11.code === 0 && /recon/.test(g11.out) && !exists(path.join(U, '.claude/settings.json')) && g12.code === 0 && !walk(path.join(U, '.claude')).length, `${tail(g11, 1)} | ${tail(g12, 1)}; left: ${walk(path.join(U, '.claude')).join(', ')}`);
 const g13 = drop(['add', 'nonsense', '--repo', Gr], genv); const g14 = drop(['add', 'check', '--repo', Gr, '--bogus'], genv);
 ok('G6', 'unknown part and unknown flag exit 2 and write nothing', g13.code === 2 && g14.code === 2 && treeHash(Gr) === hG0, `${tail(g13, 1)} | ${tail(g14, 1)}`);
+// G7-G9: the worksheet is the user's file: placed once, never rewritten, kept (hidden from git) when filled in, removed while still blank
+const wsf = path.join(Gr, '.claude/worksheet.md'); const wsRec = () => { try { return JSON.parse(readIf(gitPath(Gr, 'dev-toolkit.json'))).files['worksheet.md'] || null; } catch { return null; } };
+const w1 = drop(['add', 'worksheet', '--repo', Gr], genv); const blank = readIf(wsf); const w2 = drop(['add', 'worksheet', '--repo', Gr], genv); const w3 = drop(['add', 'worksheet', '--user', '--home', U]);
+const heads = ['OVERVIEW', 'TASKS', 'ACCEPTANCE CRITERIA', 'CONSTRAINTS', 'GUARDRAILS'].map((h) => blank.indexOf(`## ${h}`));
+ok('G7', 'add worksheet: .claude/worksheet.md with its five sections in order, in info/exclude and the manifest, porcelain unchanged; a second run changes nothing; --user places nothing',
+  w1.code === 0 && heads.every((p, i) => p >= 0 && (!i || p > heads[i - 1])) && readIf(gitPath(Gr, 'info/exclude')).includes('/.claude/worksheet.md') && wsRec()?.part === 'worksheet' && porc(Gr) === sG
+  && w2.code === 0 && /unchanged\s.*worksheet\.md/.test(w2.out) && w3.code === 0 && /repo-level/.test(w3.out) && !exists(path.join(U, '.claude/worksheet.md')), `${tail(w1, 1)} | ${tail(w2, 1)} | ${tail(w3, 1)}`);
+fs.writeFileSync(wsf, blank.replace('- Goal:', '- Goal: mine')); const w4 = drop(['add', 'worksheet', '--repo', Gr], genv); const w5 = drop(['remove', 'worksheet', '--repo', Gr], genv);
+ok('G8', 'a filled-in worksheet is yours: add keeps it without a warning; remove keeps it with the standard warning, exit 0, still hidden from git', w4.code === 0 && /yours; kept/.test(w4.out) && !/WARN/.test(w4.out) && w5.code === 0
+  && /worksheet\.md changed after install; kept/.test(w5.out) && readIf(wsf).includes('- Goal: mine') && porc(Gr) === sG && readIf(gitPath(Gr, 'info/exclude')).includes('/.claude/worksheet.md') && !!wsRec(), `${tail(w4, 1)} | ${tail(w5, 1)}`);
+fs.writeFileSync(wsf, blank); const w6 = drop(['remove', 'worksheet', '--repo', Gr], genv);
+ok('G9', 'a blank worksheet is removed with its record, its exclude entry and the empty .claude folder', w6.code === 0 && treeHash(Gr) === hG0 && !wsRec() && porc(Gr) === sG && clean(Gr), tail(w6));
 
 // H: the parallel scripts as dropin places them, in a repo with a remote, through Git Bash, with HOME pointed at an empty dir
 if (!BASH) res('H', 'parallel scripts', 'WARN', 'Git Bash not found: skipped');

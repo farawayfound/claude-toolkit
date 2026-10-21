@@ -6,7 +6,7 @@
 
 | Min | Phase | Do | Say (15 words or fewer) | Checkpoint |
 |---|---|---|---|---|
-| 0-3 | Ground rules | The four questions (§2); clone; branch; `claude` | "A few quick questions, then I read before I touch anything." | Their answers |
+| 0-3 | Ground rules | The four questions (§2) and the worksheet; clone; branch; `claude` | "A few quick questions, then I read before I touch anything." | Their answers |
 | 3-10 | `/recon [topic]` | Four agents fan out; meanwhile skim the README and ask §2b | "Four read-only agents: baseline, the path to the write, bypasses, conventions." | "Is this the chokepoint you'd expect?" |
 | 10-15 | `/scope [task]` | Cases, at most 5 files, non-goals, measurement, rollback, tracks | "Here's what done means and what I'm not touching." | **Agreement before any edit** |
 | 15-38 | Build | test-writer writes RED while you direct the fix; verifier in the background; `/check` | "Tests fail for the right reason; now the smallest fix." | Show RED (about minute 24) |
@@ -37,13 +37,15 @@ claude                                                      # accept trust, then
 ```
 Permission mode: default for recon; **Shift+Tab to acceptEdits** after the plan is approved; auto only if prompts stack up (the guard's denies still apply; push and PR still ask). Share one window.
 
+**The worksheet** · the install leaves a blank `.claude/worksheet.md` (out of git). While the brief is read out, fill it in by hand in your editor, one line at a time after the colons: the overview, the tasks with their sub-tasks, an acceptance criterion per task, the constraints, the guardrails (copy a line to add another). `/recon` then asks only for what is still blank, and `/scope issues: .claude/worksheet.md; constraints: its CONSTRAINTS section; rules: its GUARDRAILS section` starts from it. Nothing re-run later rewrites it.
+
 **2b · During recon** (ask while the agents run): Can I run it locally; which test command; does a service need to be up? Where does the acting user's identity come from today: session, header, env var, or a shared integration user? What defines "team": owner field, manager field, hierarchy, IdP group; direct reports or the subtree? Writes only, or reads too? Pushed branch and draft PR, or local branch plus PR text?
 
 ## 3 · The loop, with the exact prompts
 
 Everything with a slash, and every quoted prompt, is typed at the Claude Code prompt in the project's folder; `[square brackets]` are yours to replace.
 
-**Recon** · `/recon update [record]` (or plain `/recon` before the task is known): four agents in one message; the brief lands in `.claude/plan/recon.md` and ends with three questions (issues, constraints, rules) plus the `/scope` line to type. Read the chokepoint line aloud and ask the room to confirm it.
+**Recon** · `/recon update [record]` (or plain `/recon` before the task is known): four agents in one message; the brief lands in `.claude/plan/recon.md` and ends with three questions (issues, constraints, rules) plus the `/scope` line to type; a filled `.claude/worksheet.md` answers them, so it asks only for what is blank. Read the chokepoint line aloud and ask the room to confirm it.
 
 **Scope** ·
 ```

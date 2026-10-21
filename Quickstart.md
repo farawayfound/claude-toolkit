@@ -41,7 +41,7 @@ Already inside Claude Code? Put `!` before the line at its prompt: `! node "$HOM
 | `takehome` | A timed challenge, 90 minutes to 3 hours | the base, `recon`, `takehome-init`, `scope`, `check`, `break`, `deslop`, `tighten-docs`, `ship`, `team`; all six agents; `trail` |
 | `unbound` | No time limit, a general set | everything in `live` plus `access-control`, `perf-baseline`, `break`, `tighten-docs`, `parallel`, the `breaker` agent and the `/gate` workflow; no `trail` |
 
-The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules and the agent-teams switch. `--set live` skips the question (so do `-Set live` and a plain `live`); a script or a pipe with no set gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
+The base in every set: the house rules, the permission rules, the guard, the facts block (detected test and lint commands), the language rules, a blank `.claude/worksheet.md` for the brief (yours to fill in; no re-run rewrites it) and the agent-teams switch. `--set live` skips the question (so do `-Set live` and a plain `live`); a script or a pipe with no set gets `full`. Files go under `.claude/` and `CLAUDE.local.md`, all listed in `.git/info/exclude`, so nothing appears in `git status`, and nothing is written to `~/.claude` or any global settings. On a machine with the older opt-in user layer in `~/.claude`, every set adds only what that layer lacks.
 
 Other sizes. Each command runs where its row says; every name you give the installer adds to what is already there:
 
@@ -56,7 +56,7 @@ Other sizes. Each command runs where its row says; every name you give the insta
 | The gate: blocks finishing while changed code has no passing test run | Terminal, in your project's folder | `node "$HOME/claude-toolkit/install.mjs" --set live --gate`, or `node "$HOME/claude-toolkit/install.mjs" gate` |
 | Agent teams off again, or on for a set that lacks them | any text editor, or a terminal in your project's folder | `"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"` under `env` in `.claude/settings.local.json` (no restart needed); `node "$HOME/claude-toolkit/install.mjs" team` to add the skill and the switch |
 | Preview any add or remove | the same place as that command | put ` --dry-run` at the end; nothing is written |
-| Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `node "$HOME/claude-toolkit/install.mjs" --uninstall` |
+| Take it all out of one project | Terminal, in that project's folder | Worktrees first (`git worktree remove [path]`; their hooks point at this checkout), then `node "$HOME/claude-toolkit/install.mjs" --uninstall` (a worksheet you filled in stays, hidden from git) |
 
 ## 3. Check it
 
@@ -84,6 +84,7 @@ They show the guard, the commands and the subagents of the set you placed. A fre
 
 | Situation | What you type | You get |
 |---|---|---|
+| The brief is being read out | In your editor, not at the Claude Code prompt: fill in `.claude/worksheet.md`, typing after the colons (overview, tasks with sub-tasks, acceptance criteria, constraints, guardrails; copy a line to add another). Then `/recon`, and `/scope issues: .claude/worksheet.md; constraints: its CONSTRAINTS section; rules: its GUARDRAILS section` | A written record of what was asked that `/recon` and `/scope` read instead of asking again; the file stays out of git |
 | Unfamiliar code, several issues | `/recon` (no brief needed; it writes `.claude/plan/recon.md` and asks for the issues, constraints and rules), then `/scope issues: [paths or text]; constraints: [...]; rules: [...]` (approve the plans), then `/team build` | One plan file per issue in `.claude/plan/`, ranked by fix velocity; one builder teammate per plan in its own worktree and branch, a qa teammate running the checks and adversarial tests; a PR brief per branch |
 | Unfamiliar code, one change | `/recon [topic]`, `/scope issues: [the change in one sentence]`, approve, then `build plan 01 here`, `/check`, `/deslop [base branch]`, `/team review [base branch]` (or `Use the reviewer agent on the diff`), then `/pr-brief` | RED before the fix, real check output, a review with evidence, PR text you read before pushing |
 | A take-home or challenge | `/takehome-init [path to the brief file]`, `/scope [path to the brief file]`, then the thin slice, `/break [entrypoint]`, `/deslop [base branch]`, `/tighten-docs`, `/ship` | A clean repo, a ledger of who decided what, a short README with your own Decisions and AI use, a gate that opens the repo the way a reviewer will |

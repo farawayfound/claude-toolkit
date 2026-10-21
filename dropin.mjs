@@ -4,7 +4,7 @@
 //   node dropin.mjs add <part|group|set ...>  [--repo DIR | --user] [--dry-run] [--force] [--home DIR]
 //   node dropin.mjs remove <part ...|all>      [--repo DIR | --user] [--dry-run] [--home DIR]
 //   node dropin.mjs facts [DIR]                 prints the repo-facts block for CLAUDE.local.md
-// Parts: modules/index.json (`list` prints them). Groups: skills, agents, rules. Sets: repo = facts + rules + whatever ~/.claude lacks
+// Parts: modules/index.json (`list` prints them). Groups: skills, agents, rules. Sets: repo = facts + rules + the worksheet + whatever ~/.claude lacks
 // (house rules, permissions, guard); default = all, or repo when an opt-in user layer exists; all = every part that is not opt-in (in --user
 // mode: minus the per-repo rules); the named sets in modules/sets.json (full, live, takehome, unbound, safety; install.mjs --set) may nest
 // sets and groups. A part's `requires` come along (gate needs facts, verifier needs check, breaker needs break, team needs teams).
@@ -109,11 +109,13 @@ function filesOf(t, name) { // [[source, destination under the .claude dir]]
   if (p.kind === 'rule') return [[M('rules', `${name}.md`), `rules/${name}.md`]];
   if (p.kind === 'hook') return p.files.map((f) => [M(name, f), `${t.hooksRel}/${f}`]);
   if (p.kind === 'workflow') return p.files.map((f) => [M(name, f), `workflows/${f}`]);
+  if (p.kind === 'worksheet') return p.files.map((f) => [M(name, f), f]); // .claude/worksheet.md
   return [];
 }
 function placeFile(t, part, src, dest) { // update only files we own: on-disk hash equals the manifest hash
   const abs = path.join(t.base, dest), data = lf(fs.readFileSync(src, 'utf8')), cur = read(abs), prev = t.state.files[dest];
   if (t.tracked?.has(`.claude/${dest}`)) return warn(t, `.claude/${dest} is tracked by git; skipped`);
+  if (INDEX[part].userOwned && prev && !t.force && cur !== data && (cur === null || sha(cur) !== prev.sha256)) return note(t, 'skipped', abs, cur === null ? 'removed by you; left removed' : 'yours; kept'); // a sheet the user fills in is placed once: an edited copy is never rewritten, and no warning
   if (cur !== null && cur !== data && !t.force && (!prev || sha(cur) !== prev.sha256)) { warn(t, `${dest} ${prev ? 'was modified after install' : 'exists with different content'}; kept${prev ? '' : ' (--force replaces it)'}`); return note(t, 'skipped', abs); }
   writeText(t, abs, data); if (!t.dry && data.startsWith('#!')) fs.chmodSync(abs, 0o755); // scripts stay runnable on macOS and Linux
   t.state.files[dest] = { sha256: sha(data), created: prev ? prev.created : cur === null, part };
@@ -121,7 +123,7 @@ function placeFile(t, part, src, dest) { // update only files we own: on-disk ha
 function removeFile(t, dest) {
   const f = t.state.files[dest], abs = path.join(t.base, dest); delete t.state.files[dest]; const cur = read(abs);
   if (cur === null || f.created === false) return; // a file that existed before us keeps our content: its original is gone
-  if (sha(cur) !== f.sha256) return warn(t, `${dest} changed after install; kept`);
+  if (sha(cur) !== f.sha256) { if (INDEX[f.part]?.userOwned) t.state.files[dest] = f; return warn(t, `${dest} changed after install; kept`); } // a sheet the user filled in keeps its record, so it stays hidden from git
   remove(t, abs); for (let d = path.dirname(abs); !t.dry && d.startsWith(t.base) && d !== t.base && fs.existsSync(d) && !fs.readdirSync(d).length; d = path.dirname(d)) fs.rmdirSync(d);
 }
 const addPerms = (s, perms, added) => { for (const k of ['allow', 'ask', 'deny']) for (const r of perms[k] || []) { s.permissions ||= {}; const l = (s.permissions[k] ||= []); if (!l.includes(r)) { l.push(r); (added[k] ||= []).push(r); } } };
@@ -180,8 +182,8 @@ function userHas(t, part) { // is this part already in the user layer (~/.claude
 export function resolve(names, t, seen = new Set()) { // explicit names, groups and sets (which may nest sets and groups), with each part's requires placed first
   const out = []; const push = (n) => { if (!out.includes(n)) { for (const r of INDEX[n].requires || []) push(r); out.push(n); } };
   for (const n of names) {
-    if (n === 'all') for (const p of Object.keys(INDEX)) { if (!INDEX[p].optIn && (t.mode === 'repo' || INDEX[p].kind !== 'rule')) push(p); } // opt-in hooks (gate, trail) are named explicitly; rules are per-repo
-    else if (n === 'repo') { if (t.mode !== 'repo') die(2, 'the repo set needs --repo'); push('facts'); partsOfKind('rule').forEach(push); if (!userHas(t, 'house-rules')) push('house-rules'); if (!userHas(t, 'guard')) { push('permissions'); push('guard'); } }
+    if (n === 'all') for (const p of Object.keys(INDEX)) { if (!INDEX[p].optIn && (t.mode === 'repo' || !['rule', 'worksheet'].includes(INDEX[p].kind))) push(p); } // opt-in hooks (gate, trail) are named explicitly; rules and the worksheet are per-repo
+    else if (n === 'repo') { if (t.mode !== 'repo') die(2, 'the repo set needs --repo'); push('facts'); partsOfKind('rule').forEach(push); push('worksheet'); if (!userHas(t, 'house-rules')) push('house-rules'); if (!userHas(t, 'guard')) { push('permissions'); push('guard'); } }
     else if (n === 'default') { // what install.mjs places: every part, unless an opt-in user layer already provides them (then only what it lacks, so nothing loads twice)
       if (t.mode !== 'repo') die(2, 'the default set needs --repo');
       const lean = userHas(t, 'guard') && userHas(t, 'house-rules'); if (lean) console.log(`  note      user layer found in ${fwd(t.CL)}: adding only what it lacks (--full places every part anyway)`);
@@ -198,7 +200,7 @@ export const installed = (t) => [...new Set([...Object.values(t.state.files).map
 export async function add(t, names) {
   const list = resolve(names, t); console.log(`dev-toolkit add -> ${t.label}: ${list.join(', ')}${t.dry ? ' (dry run: nothing is written)' : ''}`);
   for (const name of list) {
-    const p = INDEX[name]; if (p.kind === 'rule' && t.mode === 'user') { note(t, 'skipped', `rules/${name}.md`, 'rules are repo-level: use --repo'); continue; }
+    const p = INDEX[name]; if (['rule', 'worksheet'].includes(p.kind) && t.mode === 'user') { note(t, 'skipped', p.kind === 'rule' ? `rules/${name}.md` : name, `${p.kind}s are repo-level: use --repo`); continue; }
     const files = filesOf(t, name); for (const [src, dest] of files) placeFile(t, name, src, dest);
     for (const [dest, f] of Object.entries(t.state.files)) if (f.part === name && !files.some(([, d]) => d === dest)) removeFile(t, dest); // paths this part no longer ships
     const snip = readJson(path.join(MOD, name, 'settings.json')); const hooksDir = fwd(path.join(t.base, t.hooksRel));
@@ -246,6 +248,7 @@ export function finish(t, removing = false) { // exclude block (repo), empty-dir
   if (t.mode === 'repo') { const ok = new Set([...lines(st.snapshot), ...lines(t.snapshot)]); const leaked = [...lines(t.porcelain())].filter((l) => !ok.has(l)); if (leaked.length) die(1, `git status changed; these paths leaked into the working tree:\n  ${leaked.join('\n  ')}`); }
   console.log(`${c.created} created, ${c.updated} updated, ${c.removed} removed, ${c.unchanged} unchanged, ${c.skipped} skipped${t.mode === 'repo' ? '; git status unchanged' : ''}.${t.warns.length ? ` ${t.warns.length} warning(s) above.` : ''}`);
   if (t.mode === 'repo' && !removing) console.log(`Next: start claude in ${t.label} (restart a session already open there), accept the trust prompt, then type /recon [topic] at its prompt`);
+  if (t.mode === 'repo' && !removing && st.files['worksheet.md']) console.log('Worksheet: .claude/worksheet.md is yours to fill in during the brief; re-runs and --update never rewrite an edited copy');
 }
 
 // ---- CLI
@@ -255,7 +258,7 @@ async function main() {
   if (cmd === 'list') {
     for (const [n, p] of Object.entries(INDEX)) console.log(`${n.padEnd(18)}${p.kind.padEnd(10)}${(p.requires ? `needs ${p.requires.join(', ')}` : '').padEnd(14)}${p.what}`);
     for (const [s, parts] of Object.entries(SETS)) console.log(`set ${s.padEnd(14)}${parts.join(', ')}`);
-    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + whatever ~/.claude lacks), default (all, or repo when ~/.claude has the user layer), all (every part that is not opt-in), and the named sets above (install.mjs --set <name>)');
+    return console.log('\ngroups: skills, agents, rules    sets: repo (facts + rules + the worksheet + whatever ~/.claude lacks), default (all, or repo when ~/.claude has the user layer), all (every part that is not opt-in), and the named sets above (install.mjs --set <name>)');
   }
   if (cmd === 'facts') { const { renderFacts } = await import('./modules/facts/facts.mjs'); return console.log(renderFacts(path.resolve(names[0] || '.'))); }
   if (!['add', 'remove'].includes(cmd) || !names.length) die(2, 'usage: node dropin.mjs list | add <parts> [--repo DIR | --user] | remove <parts | all> [--repo DIR | --user] | facts [DIR]');

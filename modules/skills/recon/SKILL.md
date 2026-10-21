@@ -37,4 +37,5 @@ At most 40 lines, every claim with file:line, nothing the README already says. F
 ```
 Then, in the conversation, these three questions and the line after them; no AskUserQuestion, the answers travel with the next command:
 1. Which issues or tasks are to be worked (paths such as `issues/*.md`, `#123`, or pasted text)? 2. Constraints (time, rates, must-nots, allowed dependencies)? 3. Ground rules (branching, commits, review, what done means)?
+A filled `.claude/worksheet.md` already answers these (TASKS, ACCEPTANCE CRITERIA, CONSTRAINTS, GUARDRAILS): read it, ask only for what is blank, and name it in the `/scope` line.
 `Next: /scope issues: <paths or text>; constraints: <...>; rules: <...>`   (map: `.claude/plan/recon.md`)

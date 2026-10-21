@@ -22,7 +22,7 @@ Slip rule: cut beyond-the-prompt items first, then scope, never verification. A 
 
 ## 2 · First ten minutes
 
-1. Read the brief twice. Quote every requirement; the plan carries them as `R1`, `R2`, ... and the tests cite them.
+1. Read the brief twice. Quote every requirement; the plan carries them as `R1`, `R2`, ... and the tests cite them. Fill in `.claude/worksheet.md` as you read (overview, tasks, an acceptance criterion per task, constraints, guardrails); `/scope` can start from it.
 2. Answer the open questions the brief leaves (language, installs allowed, submission channel) as ledger rows by `me` (`/takehome-init` writes them when you answer).
 3. `/scope`: when it offers options, choose; when it asks a question, answer or take the recommended default and say so. The ledger is being written now.
 4. Draw the fence out loud: "In the prompt: workflow, output file, two tests, README. Beyond: a GUI, a live model, export." Then do not look at the second list until 60%.
