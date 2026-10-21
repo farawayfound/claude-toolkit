@@ -62,11 +62,12 @@ if ($Open) {
   $psmux = (Get-Command psmux -CommandType Application | Select-Object -First 1).Source; $claude = (Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
   if (-not $claude -and (Test-Path "$env:USERPROFILE\.local\bin\claude.exe")) { $claude = "$env:USERPROFILE\.local\bin\claude.exe" }
   $env:Path = (Split-Path $psmux) + ';' + $(if ($claude) { (Split-Path $claude) + ';' } else { '' }) + $env:Path   # the session's panes inherit it
+  $teamEnv = @('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', 'CLAUDE_CODE_ENABLE_TODO_TOOLS'); foreach ($v in $teamEnv) { Set-Item -Path "Env:$v" -Value '1' }   # teammate panes inherit the session environment, not the lead's settings
   & $psmux has-session -t $name 2>$null
   if ($LASTEXITCODE -ne 0) {
     & $psmux new-session -d -s $name -c $win
     if ($claude) { & $psmux send-keys -t $name "& '$claude' --teammate-mode tmux" Enter } else { Warn 'claude is not installed: run .\tmux.cmd, then type claude in the pane' }
-  }
+  } else { foreach ($v in $teamEnv) { & $psmux set-environment -t $name $v 1 } }
   # Start-Process joins -ArgumentList with spaces and quotes nothing, so every argument that carries a space is quoted here
   $inner = @($shell, '-NoLogo', '-NoExit', '-Command', "`"& '$psmux' attach-session -t $name`"")
   if (Get-Command wt.exe -ErrorAction SilentlyContinue) { Start-Process wt.exe -ArgumentList (@('-w', 'claude-team', 'new-tab', '--title', "`"psmux $name`"", '-d', "`"$win`"") + $inner) }

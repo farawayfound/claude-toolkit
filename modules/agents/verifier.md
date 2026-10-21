@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: "Use proactively after a change is implemented, or in parallel with further work, to independently run the repository's format check, lint, typecheck and tests and report PASS/FAIL with evidence. Never edits files."
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, SendMessage, TaskGet, TaskList, TaskUpdate
 model: sonnet
 skills: check
 ---

@@ -129,6 +129,7 @@ if (F.uninstall) { removeParts(t, names.length ? names : ['all']); finish(t, tru
 // by its full path, so the parts just placed load and every teammate opens as a pane (the session sets TMUX; claude gets --teammate-mode tmux).
 // Asked on a terminal; --panes says yes without asking (and installs what is missing first), --no-panes skips it; a pipe only prints the lines.
 const MUXNAME = WIN ? 'psmux (tmux for Windows)' : 'tmux';
+const TEAMENV = ['CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', 'CLAUDE_CODE_ENABLE_TODO_TOOLS']; // a teammate pane inherits the session's environment, not the lead's settings; the second keeps the Task tools on for a teammate started with --model
 const SETUP = WIN ? `& "${fwd(TK)}/tmux.cmd"   (PowerShell or Windows Terminal; cmd: "${fwd(TK)}/tmux.cmd")` : `bash "${fwd(TK)}/setup/tmux.sh"`;
 const LATER = `node "${fwd(TK)}/team.mjs"   (in your project's folder)${WIN ? `; psmux left and VS Code right: & "${fwd(TK)}/tmux.cmd" -Open .` : ''}`;
 const onPath = (names, extra = []) => { // the first of these names in PATH or in the extra folders
@@ -163,12 +164,13 @@ async function teamTerminal() {
   if (!F.panes && !/^(y|yes)?$/i.test(await ask(`Open the team terminal${WIN ? ' in a new window' : ' here'} and start claude in ${fwd(dir)}? [Y/n] `))) return console.log(`  later: ${LATER}`);
   const name = path.basename(dir).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'team';
   process.env.PATH = [path.dirname(bin), path.dirname(cli), process.env.PATH || ''].join(path.delimiter); // a server started here hands this PATH to every pane
+  for (const v of TEAMENV) process.env[v] = '1';
   const run = (a) => spawnSync(bin, a, { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] });
   const start = WIN ? `& '${cli}' --teammate-mode tmux` : `'${cli}' --teammate-mode tmux`; // the pane shell is PowerShell on Windows
   if (run(['has-session', '-t', name]).status !== 0) {
     const ns = run(['new-session', '-d', '-s', name, '-c', dir]); if (ns.status !== 0) return console.log(`  could not start ${fwd(bin)}: ${(ns.stderr || ns.stdout || '').trim()}`);
     run(['send-keys', '-t', name, start, 'Enter']);
-  } else if (!/claude/i.test(run(['list-panes', '-t', name, '-F', '#{pane_current_command}']).stdout || '')) { console.log(`  session ${name} exists without claude: starting it in its first pane`); run(['send-keys', '-t', name, start, 'Enter']); }
+  } else if (TEAMENV.every((v) => run(['set-environment', '-t', name, v, '1']) && true) && !/claude/i.test(run(['list-panes', '-t', name, '-F', '#{pane_current_command}']).stdout || '')) { console.log(`  session ${name} exists without claude: starting it in its first pane`); run(['send-keys', '-t', name, start, 'Enter']); }
   else console.log(`  session ${name} already running claude: attaching`);
   console.log(`Team terminal: session ${name} in ${fwd(dir)}${WIN ? ', in its own window' : ''}. claude runs in the first pane; each teammate opens as a pane (click into it to talk to it). Ctrl+b then d detaches and the session stays. Later: ${LATER}`);
   if (!WIN) { const at = spawnSync(bin, ['attach-session', '-t', name], { cwd: dir, stdio: 'inherit' }); process.exit(at.status ?? 0); }
