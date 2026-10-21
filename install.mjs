@@ -9,8 +9,8 @@
 //   --init       the target is not the root of a git repository: git init there and commit its files as a baseline (asked when interactive)
 //   --update     git pull --ff-only in this clone first, then install from the updated files
 //   --uninstall  removes everything this tool placed (or only the names given)
-//   --panes      after the install, open the team terminal here without asking: psmux (Windows) or tmux attached in this terminal, claude
-//                started in its first pane, every teammate in a pane of its own. Missing psmux or tmux is installed first (setup/tmux.ps1,
+//   --panes      after the install, open the team terminal without asking: psmux in a new Windows Terminal window (macOS, Linux: tmux
+//                attached in this terminal), claude started in its first pane, every teammate in a pane of its own. Missing psmux or tmux is installed first (setup/tmux.ps1,
 //                setup/tmux.sh). Interactive runs are asked instead; --no-panes skips the step. Alone, in a repo already set up, it only opens
 //                (team.mjs is that one line: node "$HOME/claude-toolkit/team.mjs").
 // The docs write the clone as "$HOME/claude-toolkit", never ~/claude-toolkit: Windows PowerShell hands ~ to git and node unexpanded, so
@@ -18,7 +18,7 @@
 // a folder and prints the fix.
 // Exit: 0 ok, 1 failed or leaked into git status, 2 usage / not a repo / refused, 3 node too old or git missing.
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import readline from 'node:readline';
-import { spawnSync } from 'node:child_process'; import { fileURLToPath } from 'node:url';
+import { spawn, spawnSync } from 'node:child_process'; import { fileURLToPath } from 'node:url';
 
 const SELF = fileURLToPath(import.meta.url); const TK = path.dirname(SELF); const WIN = process.platform === 'win32';
 const URL = 'https://github.com/farawayfound/claude-toolkit.git';
@@ -125,40 +125,58 @@ const rev = git(['log', '-1', '--format=%h %cs', '--', '.'], TK).out; console.lo
 const t = target({ dir, dry: F.dry, force: F.force });
 if (F.uninstall) { removeParts(t, names.length ? names : ['all']); finish(t, true); } else if (names.length) { await add(t, names); finish(t); } else console.log(`nothing to place: ${t.label} already has the toolkit`);
 
-// ---- the team terminal: psmux on Windows, tmux elsewhere, attached in this terminal with claude started in its first pane, so the parts
-// just placed load and every teammate opens as a pane (the session sets TMUX, and claude gets --teammate-mode tmux). Asked on a terminal;
-// --panes says yes without asking (and installs a missing psmux or tmux first), --no-panes skips it; a pipe only prints the lines.
+// ---- the team terminal: psmux on Windows (a new Windows Terminal window), tmux elsewhere (attached here), claude started in the first pane
+// by its full path, so the parts just placed load and every teammate opens as a pane (the session sets TMUX; claude gets --teammate-mode tmux).
+// Asked on a terminal; --panes says yes without asking (and installs what is missing first), --no-panes skips it; a pipe only prints the lines.
 const MUXNAME = WIN ? 'psmux (tmux for Windows)' : 'tmux';
 const SETUP = WIN ? `& "${fwd(TK)}/tmux.cmd"   (PowerShell or Windows Terminal; cmd: "${fwd(TK)}/tmux.cmd")` : `bash "${fwd(TK)}/setup/tmux.sh"`;
-const LATER = `node "${fwd(TK)}/install.mjs" --panes   (in your project's folder)${WIN ? `; two windows, psmux left and VS Code right: & "${fwd(TK)}/tmux.cmd" -Open .` : ''}`;
-function findMux() { // the tmux binary: PATH first, then where winget puts psmux, because a terminal opened before the install still has the old PATH
-  const names = WIN ? ['tmux.exe', 'psmux.exe'] : ['tmux']; const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
-  const la = WIN && process.env.LOCALAPPDATA; const pk = la && path.join(la, 'Microsoft', 'WinGet', 'Packages');
-  if (la) dirs.push(path.join(la, 'Microsoft', 'WinGet', 'Links'), ...(fs.existsSync(pk) ? fs.readdirSync(pk).filter((d) => /psmux/i.test(d)).map((d) => path.join(pk, d)) : []));
+const LATER = `node "${fwd(TK)}/team.mjs"   (in your project's folder)${WIN ? `; psmux left and VS Code right: & "${fwd(TK)}/tmux.cmd" -Open .` : ''}`;
+const onPath = (names, extra = []) => { // the first of these names in PATH or in the extra folders
+  const dirs = [...(process.env.PATH || '').split(path.delimiter), ...extra].filter(Boolean);
   for (const d of dirs) for (const n of names) { const p = path.join(d, n); if (fs.existsSync(p)) return p; }
+  return null;
+};
+function findMux() { // psmux ships psmux.exe and a tmux.exe alias; a terminal opened before the winget install still has the old PATH, so look where winget puts it too
+  const la = WIN && process.env.LOCALAPPDATA; const pk = la && path.join(la, 'Microsoft', 'WinGet', 'Packages');
+  const extra = la ? [path.join(la, 'Microsoft', 'WinGet', 'Links'), ...(fs.existsSync(pk) ? fs.readdirSync(pk).filter((d) => /psmux/i.test(d)).map((d) => path.join(pk, d)) : [])] : [];
+  return onPath(WIN ? ['psmux.exe', 'tmux.exe'] : ['tmux'], extra);
+}
+function findClaude() { // the Claude Code CLI: PATH, the native installer's folder, then the copy the VS Code extension carries
+  const found = onPath(WIN ? ['claude.exe', 'claude.cmd'] : ['claude'], [path.join(os.homedir(), '.local', 'bin')]); if (found || !WIN) return found;
+  const ext = path.join(os.homedir(), '.vscode', 'extensions');
+  for (const d of (fs.existsSync(ext) ? fs.readdirSync(ext) : []).filter((x) => /^anthropic\.claude-code-/.test(x)).sort().reverse()) { const p = path.join(ext, d, 'resources', 'native-binary', 'claude.exe'); if (fs.existsSync(p)) return p; }
   return null;
 }
 async function teamTerminal() {
   if (F.nopanes || F.dry || F.uninstall) return;
-  const tty = !!process.stdin.isTTY; const mintty = WIN && (process.env.TERM_PROGRAM === 'mintty' || (!!process.env.MSYSTEM && !process.env.WT_SESSION && process.env.TERM_PROGRAM !== 'vscode'));
+  const tty = !!process.stdin.isTTY;
   if (process.env.TMUX) return console.log(`Team terminal: already inside ${MUXNAME}; type claude here`);
-  let bin = findMux();
-  if (!bin && (!tty || mintty)) return console.log(`Team terminal (teammates in panes): install ${MUXNAME} once with\n  ${SETUP}\n  then ${LATER}`);
-  if (!bin) {
-    const yes = F.panes || /^(y|yes)$/i.test(await ask(`Team terminal: ${MUXNAME} is not installed. Install it now${WIN ? ' with winget (psmux, PowerShell 7, the Claude Code CLI; per user, no admin)' : ' with your package manager (tmux, Node, the Claude Code CLI)'}? [y/N] `));
+  let bin = findMux(), cli = findClaude(); const missing = () => [!bin && MUXNAME, !cli && 'the Claude Code CLI'].filter(Boolean).join(' and ');
+  if (missing() && !tty) return console.log(`Team terminal (teammates in panes): install ${missing()} once with\n  ${SETUP}\n  then ${LATER}`);
+  if (missing()) {
+    const yes = F.panes || /^(y|yes)$/i.test(await ask(`Team terminal: ${missing()} not installed. Install now${WIN ? ' (psmux and PowerShell 7 with winget, the Claude Code CLI with its installer; per user, no admin)' : ' (tmux and Node with your package manager, the Claude Code CLI with its installer)'}? [y/N] `));
     if (!yes) return console.log(`  later: ${SETUP}\n  then ${LATER}`);
     const r = WIN ? spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(TK, 'setup', 'tmux.ps1')], { stdio: 'inherit' }) : spawnSync('bash', [path.join(TK, 'setup', 'tmux.sh')], { stdio: 'inherit' });
-    bin = findMux(); if (r.status !== 0 || !bin) return console.log(`  the setup did not finish (exit ${r.status}): see its table above, then ${LATER}`);
+    bin = findMux(); cli = findClaude(); if (r.status !== 0 || missing()) return console.log(`  the setup did not finish (exit ${r.status}; still missing: ${missing() || 'nothing'}): see its table above, then ${LATER}`);
   }
-  if (!tty || mintty) return console.log(`Team terminal: ${fwd(bin)} found. ${mintty ? 'psmux needs a Windows console (Windows Terminal, PowerShell, cmd or the VS Code terminal), not Git Bash; there, ' : 'Open it with '}${LATER}`);
-  if (!F.panes && !/^(y|yes)?$/i.test(await ask(`Open the team terminal here and start claude in ${fwd(dir)}? [Y/n] `))) return console.log(`  later: ${LATER}`);
+  if (!tty) return console.log(`Team terminal: ${WIN ? 'psmux' : 'tmux'} at ${fwd(bin)}, claude at ${fwd(cli)}. Open it with ${LATER}`);
+  if (!F.panes && !/^(y|yes)?$/i.test(await ask(`Open the team terminal${WIN ? ' in a new window' : ' here'} and start claude in ${fwd(dir)}? [Y/n] `))) return console.log(`  later: ${LATER}`);
   const name = path.basename(dir).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'team';
+  process.env.PATH = [path.dirname(bin), path.dirname(cli), process.env.PATH || ''].join(path.delimiter); // a server started here hands this PATH to every pane
   const run = (a) => spawnSync(bin, a, { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const start = WIN ? `& '${cli}' --teammate-mode tmux` : `'${cli}' --teammate-mode tmux`; // the pane shell is PowerShell on Windows
   if (run(['has-session', '-t', name]).status !== 0) {
     const ns = run(['new-session', '-d', '-s', name, '-c', dir]); if (ns.status !== 0) return console.log(`  could not start ${fwd(bin)}: ${(ns.stderr || ns.stdout || '').trim()}`);
-    run(['send-keys', '-t', name, 'claude --teammate-mode tmux', 'Enter']);
-  } else console.log(`  session ${name} already exists: attaching`);
-  console.log(`Team terminal: session ${name} in ${fwd(dir)}. claude starts in the first pane; each teammate opens as a pane (click into it to talk to it). Detach: Ctrl+b then d. Later: ${LATER}`);
-  const at = spawnSync(bin, ['attach-session', '-t', name], { cwd: dir, stdio: 'inherit' }); process.exit(at.status ?? 0);
+    run(['send-keys', '-t', name, start, 'Enter']);
+  } else if (!/claude/i.test(run(['list-panes', '-t', name, '-F', '#{pane_current_command}']).stdout || '')) { console.log(`  session ${name} exists without claude: starting it in its first pane`); run(['send-keys', '-t', name, start, 'Enter']); }
+  else console.log(`  session ${name} already running claude: attaching`);
+  console.log(`Team terminal: session ${name} in ${fwd(dir)}${WIN ? ', in its own window' : ''}. claude runs in the first pane; each teammate opens as a pane (click into it to talk to it). Ctrl+b then d detaches and the session stays. Later: ${LATER}`);
+  if (!WIN) { const at = spawnSync(bin, ['attach-session', '-t', name], { cwd: dir, stdio: 'inherit' }); process.exit(at.status ?? 0); }
+  const shell = onPath(['pwsh.exe'], [path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps')]) ? 'pwsh' : 'powershell';
+  const inner = [shell, '-NoLogo', '-NoExit', '-Command', `& '${bin}' attach-session -t ${name}`];
+  const wt = onPath(['wt.exe'], [path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps')]);
+  const child = wt ? spawn(wt, ['-w', 'claude-team', 'new-tab', '--title', `psmux ${name}`, '-d', dir, ...inner], { detached: true, stdio: 'ignore' })
+    : spawn(`start "psmux ${name}" /D "${dir}" ${inner.map((a) => (/\s/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`, { shell: true, detached: true, stdio: 'ignore' });
+  child.on('error', (e) => console.log(`  could not open a window (${e.message}); in any Windows console: & '${bin}' attach-session -t ${name}`)); child.unref();
 }
 await teamTerminal();

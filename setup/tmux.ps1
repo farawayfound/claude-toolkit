@@ -59,13 +59,21 @@ if ($Open) {
   $win = (Resolve-Path -LiteralPath $Open).Path; $name = (Split-Path $win -Leaf) -replace '[^A-Za-z0-9_-]', '-'
   if (-not $PSCmdlet.ShouldProcess($win, "open Windows Terminal (psmux session $name) on the left and VS Code on the right")) { exit 0 }
   $shell = if (Have 'pwsh') { 'pwsh' } else { 'powershell' }
+  $psmux = (Get-Command psmux -CommandType Application | Select-Object -First 1).Source; $claude = (Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+  if (-not $claude -and (Test-Path "$env:USERPROFILE\.local\bin\claude.exe")) { $claude = "$env:USERPROFILE\.local\bin\claude.exe" }
+  $env:Path = (Split-Path $psmux) + ';' + $(if ($claude) { (Split-Path $claude) + ';' } else { '' }) + $env:Path   # the session's panes inherit it
+  & $psmux has-session -t $name 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    & $psmux new-session -d -s $name -c $win
+    if ($claude) { & $psmux send-keys -t $name "& '$claude' --teammate-mode tmux" Enter } else { Warn 'claude is not installed: run .\tmux.cmd, then type claude in the pane' }
+  }
   # Start-Process joins -ArgumentList with spaces and quotes nothing, so every argument that carries a space is quoted here
-  $inner = @($shell, '-NoLogo', '-NoExit', '-Command', "`"psmux new-session -A -s $name`"")
+  $inner = @($shell, '-NoLogo', '-NoExit', '-Command', "`"& '$psmux' attach-session -t $name`"")
   if (Get-Command wt.exe -ErrorAction SilentlyContinue) { Start-Process wt.exe -ArgumentList (@('-w', 'claude-team', 'new-tab', '--title', "`"psmux $name`"", '-d', "`"$win`"") + $inner) }
   else { Start-Process $shell -WorkingDirectory $win -ArgumentList ($inner | Select-Object -Skip 1) }
   if (Get-Command code -ErrorAction SilentlyContinue) { & cmd.exe /d /c "code -n `"$win`"" | Out-Null } else { Warn 'VS Code (code) is not on PATH: open the folder yourself' }
   Set-Half 'WindowsTerminal' 0 ''; Set-Half 'Code' 1 (Split-Path $win -Leaf)
-  Write-Host "Left: psmux session '$name' in $win. Right: VS Code. In the pane: node `"`$HOME/claude-toolkit/install.mjs`" --set live (once per repo), then claude."
+  Write-Host "Left: psmux session '$name' in $win, claude in its first pane. Right: VS Code. Teammates open as panes; Ctrl+b then d detaches."
   exit 0
 }
 
