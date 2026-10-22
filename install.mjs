@@ -16,7 +16,7 @@
 // The docs write the clone as "$HOME/claude-toolkit", never ~/claude-toolkit: Windows PowerShell hands ~ to git and node unexpanded, so
 // `git clone ... ~/claude-toolkit` there clones into a folder literally named ~ inside the current one. This script refuses to run from such
 // a folder and prints the fix.
-// Exit: 0 ok, 1 failed or leaked into git status, 2 usage / not a repo / refused, 3 node too old or git missing.
+// Exit: 0 ok, 1 failed or leaked into git status, 2 usage / not a repo / refused, 3 node too old or git missing, 130 a prompt cancelled (Ctrl+C or Ctrl+D).
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import readline from 'node:readline';
 import { spawn, spawnSync } from 'node:child_process'; import { fileURLToPath } from 'node:url';
 
@@ -35,7 +35,11 @@ function git(args, cwd) {
   return { code: r.error ? null : r.status, out: (r.stdout || '').trim(), err: ((r.stderr || '') + (r.error ? r.error.message : '')).trim() };
 }
 const within = (p, root) => { const r = path.relative(root, p); return !r.startsWith('..') && !path.isAbsolute(r); };
-function ask(q) { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); return new Promise((res) => rl.question(q, (a) => { rl.close(); res(a.trim()); })); }
+function ask(q) { // Ctrl+C or Ctrl+D at the prompt closes readline unanswered; without the close handler the await never settles and node exits 13 with a bare warning
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); let answered = false;
+  rl.on('close', () => { if (!answered) { console.log('\ncancelled: nothing more was done'); process.exit(130); } });
+  return new Promise((res) => rl.question(q, (a) => { answered = true; rl.close(); res(a.trim()); }));
+}
 const HOMEISH = /^(~|\$home|%userprofile%)$/i; // what an unexpanded home folder leaves behind as a folder name
 const rmLines = (p) => `${WIN ? `    PowerShell: Remove-Item -Recurse -Force -LiteralPath '${p.replace(/\//g, '\\')}'\n    Git Bash:   ` : '    '}rm -rf '${fwd(p)}'`;
 const isFlag = (a) => /^-{1,2}[A-Za-z?]/.test(a) || a === '/?';
@@ -152,6 +156,7 @@ async function teamTerminal() {
   if (F.nopanes || F.dry || F.uninstall) return;
   const tty = !!process.stdin.isTTY;
   if (process.env.TMUX) return console.log(`Team terminal: already inside ${MUXNAME}; type claude here`);
+  if (WIN) delete process.env.PSModulePath; // pwsh 7 exports its own module folders; Windows PowerShell inheriting them (tmux.ps1, the Claude Code installer, a powershell pane) loses Get-FileHash. Unset, each edition builds its own
   let bin = findMux(), cli = findClaude(); const missing = () => [!bin && MUXNAME, !cli && 'the Claude Code CLI'].filter(Boolean).join(' and ');
   if (missing() && !tty) return console.log(`Team terminal (teammates in panes): install ${missing()} once with\n  ${SETUP}\n  then ${LATER}`);
   if (missing()) {

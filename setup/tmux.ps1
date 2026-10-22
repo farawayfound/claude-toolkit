@@ -1,6 +1,6 @@
 <#
 tmux.ps1 - teammates in their own panes on Windows, natively: psmux (tmux for Windows, ConPTY, no WSL), PowerShell 7 for its panes,
-the Claude Code CLI, ~/.psmux.conf from setup/tmux/psmux.conf, and teammateMode "auto" in ~/.claude/settings.json (split panes inside
+the Claude Code CLI (its folder on the user PATH), ~/.psmux.conf from setup/tmux/psmux.conf, and teammateMode "auto" in ~/.claude/settings.json (split panes inside
 psmux, in-process everywhere else). Verified: Claude Code 2.1.305 + psmux 3.4.0 put each teammate in its own pane (TmuxBackend).
 Run it through tmux.cmd from a normal terminal, from any folder: & "$HOME\claude-toolkit\tmux.cmd" in PowerShell, "%USERPROFILE%\claude-toolkit\tmux.cmd"
 in cmd. install.mjs runs it for you when it offers the team terminal and psmux is missing. Nothing here needs admin.
@@ -22,6 +22,14 @@ function Update-SessionPath {
   $extra = @("$env:LOCALAPPDATA\Microsoft\WinGet\Links", "$env:USERPROFILE\.local\bin", "$env:LOCALAPPDATA\Microsoft\WindowsApps")
   $all = @([Environment]::GetEnvironmentVariable('Path', 'Machine'), [Environment]::GetEnvironmentVariable('Path', 'User')) + $extra
   $env:Path = (($all -join ';') -split ';' | Where-Object { $_ } | Select-Object -Unique) -join ';'
+}
+function Add-UserPath($dir) {   # for new terminals; Update-SessionPath only reaches this one
+  $saved = ([Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')) -split ';'
+  if ($saved | Where-Object { $_ -and ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\') -ieq $dir.TrimEnd('\')) }) { return }
+  if ($PSCmdlet.ShouldProcess('User PATH', "append $dir")) {
+    $cur = @([Environment]::GetEnvironmentVariable('Path', 'User') -split ';' | Where-Object { $_ })
+    [Environment]::SetEnvironmentVariable('Path', (($cur + $dir) -join ';'), 'User'); Say "User PATH += $dir"
+  }
 }
 function Have($cmd) { [bool](Get-Command $cmd -CommandType Application -ErrorAction SilentlyContinue) }
 function Ver($cmd, $flag = '--version') { try { (& $cmd $flag 2>&1 | Select-Object -First 1) -replace '[^\x20-\x7E]', '' } catch { '' } }
@@ -85,6 +93,7 @@ if (-not $Check) {
   Say 'Claude Code CLI'
   if (Have 'claude') { Say 'claude present' }
   elseif ($PSCmdlet.ShouldProcess('Claude Code', 'irm https://claude.ai/install.ps1 | iex')) { & powershell -NoProfile -ExecutionPolicy Bypass -Command 'irm https://claude.ai/install.ps1 | iex' | Out-Host; Update-SessionPath }
+  if (Test-Path "$env:USERPROFILE\.local\bin\claude.exe") { Add-UserPath "$env:USERPROFILE\.local\bin" }   # the native installer puts claude.exe there but leaves PATH alone
   Say "~/.psmux.conf"
   $pwsh = (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
   if (-not (Test-Path $userConf)) {

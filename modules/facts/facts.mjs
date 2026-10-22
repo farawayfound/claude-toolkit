@@ -15,7 +15,7 @@ export function renderFacts(root, det = detect(root)) {
   if (det.envExample) L.push('.env.example lists required keys; never open .env.');
   if (det.pythonEnv === 'none') L.push('Python env not set up: ask first, then `uv sync` (creates .venv and uv.lock) or `uv venv && uv pip install -r requirements*.txt`; keep an untracked uv.lock out of the PR.');
   if (det.conventions.length) L.push(`Read first: ${det.conventions.join(', ')}`);
-  if (det.subprojects.length) L.push(`Subprojects (run their commands from inside each): ${det.subprojects.join(', ')}`);
+  if (det.subprojects.length) L.push(`Nested packages (their commands above run from this root; \`cd <dir> && ...\` forms are not allow-listed): ${det.subprojects.join(', ')}`);
   if (fs.existsSync(path.join(root, 'AGENTS.md'))) L.push('@AGENTS.md');
   return L.join('\n');
 }
